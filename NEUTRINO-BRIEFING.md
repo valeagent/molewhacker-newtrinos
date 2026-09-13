@@ -631,3 +631,32 @@ is ≈ 400 h — not possible before 28 September on this machine. ORCA6 is
 
 Probe scripts live in `%TEMP%` (`nu_time_exps.jl`, `nu_probe_deepcore2.jl`);
 nothing of this touched the campaign outputs.
+
+### 16.5 Decisions of 13 Sep, 15:00, and the automation now in place
+
+Decided with Valentin: (1) seed 41 of the T_max ablation runs after seed 23
+(released; it starts automatically in the two queue processes, ETA 06:00 on
+14 Sep); (2) the DeepCore extension runs on the laptop, MoleWhacker
+(protocol T_max = 20) then MH, one lane per ordering, seed 11, B = 5e5,
+starting automatically when seed 41 has finished. An end-to-end smoke of the
+extension cell path (MH, d = 24, B = 2000 → result.h5 / metadata.json /
+summary.json in a temporary tree) passed; at the current machine load MH
+costs 0.16 s per evaluation, so the MH cells take 17–22 h and the lanes end
+Tuesday 15 Sep in the early morning. Chains: `out_ablation/chain_tmax_seed23.ps1`
+(pid 32588: seed 23 → T_max study → export) and
+`out_extension/chain_extension.ps1` (pid 26048: seed 41 → two extension
+lanes → T_max study with seed 41 → export). Progress files:
+`out_extension/chain_extension.progress`, `.done`. Cloud computing was
+considered and set aside: no GPU path exists in this code, and the bottleneck
+is analysis and writing, not CPU time; a 16–32 vCPU box (~10–15 EUR/day)
+remains plan B if the laptop is needed or the extension is widened.
+
+Plan for the extension section ("Towards a global fit: adding IceCube
+DeepCore"): the (sin²θ₂₃, Δm²₃₂) plane with the official IceCube 90 %
+contour and the three-experiment result; three- vs four-experiment marginals
+of the six oscillation parameters (NO and IO); MoleWhacker-vs-MH agreement
+and cost table at d = 24; parameter table against the IceCube publication;
+evidence and ordering factor with and without DeepCore; consistency ratios
+Daya Bay–DeepCore and MINOS–DeepCore; nuisance posteriors in the appendix.
+Analysis scripts to be prepared while the runs go (own `out_extension/`
+tree, never mixed into `out/runs`).
