@@ -1,0 +1,25 @@
+# Single-experiment and pairwise fits, protocol MoleWhacker at B = 5e4
+# (what each experiment constrains alone; decomposition of the NO/IO preference)
+mw NO 5e4 11 dayabay
+mw IO 5e4 11 dayabay
+mw NO 5e4 11 minos
+mw IO 5e4 11 minos
+mw IO 5e4 11 kamland
+mw NO 5e4 11 dayabay,minos
+mw IO 5e4 11 dayabay,minos
+mw NO 5e4 11 dayabay,kamland
+mw IO 5e4 11 dayabay,kamland
+mw NO 5e4 11 kamland,minos
+mw IO 5e4 11 kamland,minos
+mw NO 5e4 23 dayabay,minos
+mw IO 5e4 23 dayabay,minos
+mw NO 5e4 23 dayabay,kamland
+mw IO 5e4 23 dayabay,kamland
+mw NO 5e4 23 kamland,minos
+mw IO 5e4 23 kamland,minos
+mw NO 5e4 23 dayabay
+mw IO 5e4 23 dayabay
+mw NO 5e4 23 minos
+mw IO 5e4 23 minos
+mw NO 5e4 23 kamland
+mw IO 5e4 23 kamland

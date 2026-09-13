@@ -1,0 +1,18 @@
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  Parameter & Prior & Note \\
+  \midrule
+  \(\theta_{12}\) & \(\uniformdist{0.4205}{\pi/4}\) & \(\sin^2\theta_{12}\in[1/6,\,1/2]\) \\
+  \(\theta_{13}\) & \(\uniformdist{0.10}{0.20}\) &  \\
+  \(\theta_{23}\) & \(\uniformdist{\pi/6}{\pi/3}\) & \(\sin^2\theta_{23}\in[0.25,\,0.75]\), both octants \\
+  \(\delta_{\mathrm{CP}}\) & \(\uniformdist{0}{2\pi}\) & not constrained by disappearance data \\
+  \(\Delta m^2_{21}\) & \(\uniformdist{6.5}{9.0}\times 10^{-5}\,\mathrm{eV}^2\) &  \\
+  \(\Delta m^2_{31}\) & \(\uniformdist{2.0}{3.0}\times 10^{-3}\,\mathrm{eV}^2\) (NO); \(\uniformdist{-3.0}{-2.0}\times 10^{-3}\,\mathrm{eV}^2\) (IO) & ordering fixes the sign \\
+  \midrule
+  \(\epsilon_E^{\mathrm{KL}}\) & \(\normaldist{0}{1}\) on \([-3,3]\) & KamLAND energy scale \\
+  \(\epsilon_\Phi^{\mathrm{KL}}\) & \(\normaldist{0}{1}\) on \([-3,3]\) & KamLAND reactor flux \\
+  \(\epsilon_{\mathrm{geo}}^{\mathrm{KL}}\) & \(\uniformdist{-0.5}{0.5}\) & KamLAND geo-neutrino scale \\
+  \(n_{\mathrm{NC}}\) & \(\normaldist{1}{0.2^2}\) on \([0.4,1.6]\) & MINOS NC normalization \\
+  \(n_{\nu_\tau\mathrm{CC}}\) & \(\normaldist{1}{0.2^2}\) on \([0.4,1.6]\) & MINOS \(\nu_\tau\) CC normalization \\
+  \bottomrule
+\end{tabular}

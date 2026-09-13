@@ -1,0 +1,2 @@
+# nested-sampling reference run to evidence convergence (dlogz < 0.5), NO
+nsref NO 4e6 11

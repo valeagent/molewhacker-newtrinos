@@ -1,0 +1,9 @@
+# wave 1, queue D (restart) — gradient and nested samplers at the top budget, IS.
+# The nested-sampling reference runs (nsref) moved to their own processes
+# (queues nsref_NO.txt / nsref_IO.txt) so they run in parallel. Run with -t 2.
+nuts NO 5e5 11
+ns NO 5e5 11
+nuts IO 5e5 11
+ns IO 5e5 11
+is NO 5e5 11
+is IO 5e5 11

@@ -1,0 +1,4 @@
+# MoleWhacker with the iteration cap lifted (run with --out neutrino/out_ablation --tmax 100000)
+mw IO 5e5 11
+mw IO 5e5 23
+mw IO 5e5 41

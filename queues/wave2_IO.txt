@@ -1,0 +1,4 @@
+# wave 2, IO — remaining top-budget replicates (run with -t 2)
+mh IO 5e5 41
+nuts IO 5e5 23
+ns IO 5e5 23

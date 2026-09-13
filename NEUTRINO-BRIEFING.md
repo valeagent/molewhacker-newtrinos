@@ -1,0 +1,633 @@
+# Neutrino-physics chapter: briefing and plan
+
+Written 2026-09-11 after a full reconnaissance of this repository and of the
+`Newtrinos.jl` package it depends on. Purpose: give us a shared, precise
+picture of what exists, what Philipp is asking for, and what can be built by
+the 28 September deadline. Nothing in the thesis has been touched.
+
+---
+
+## 1. What Philipp said, decoded
+
+> "die Physik fehlt weitgehend … die ursprüngliche Idee war, den
+> MoleWhacker-Algorithmus an einem konkreten Neutrinooszillationsproblem zu
+> demonstrieren und die physikalischen Fragestellungen und Ergebnisse in den
+> Mittelpunkt zu stellen."
+
+He is not saying the benchmark is bad. He is saying a *physics* master's
+thesis must contain a physics analysis: a real neutrino-oscillation
+posterior, physics questions, physics results, comparison with published
+analyses. The thesis already anticipated this — `chapters/07-neutrino-application.tex`
+exists as a skeleton (Physics Motivation → Statistical Model → Analysis
+Setup → Results → Comparison with existing analyses) and was deferred.
+That chapter is what we build.
+
+## 2. Newtrinos.jl — Philipp's framework
+
+* Source: `https://github.com/philippeller/Newtrinos.jl`, pinned here at
+  git revision `adfae4a` (Manifest). Local copy:
+  `C:\Users\valen\.julia\packages\Newtrinos\HqMEa\`. Author: Philipp Eller.
+* It is a complete Bayesian neutrino-oscillation analysis framework built on
+  BAT.jl. It ships **real published data** as experiment modules:
+
+| Module | Dataset | Physics it constrains | Free nuisances (besides oscillation params) |
+|---|---|---|---|
+| `dayabay` | Daya Bay, 3158 days, 3 experimental halls, published correlation matrix (arXiv:1607.05378 lineage) | θ₁₃, Δm²₃₁ (reactor ν̄ₑ disappearance) | none (Gaussian spectral likelihood with covariance) |
+| `kamland` | KamLAND 7-year spectrum + reactor table | θ₁₂, Δm²₂₁ (solar sector, LMA) | energy scale, geo-ν scale, flux scale |
+| `minos` | MINOS 16×10²⁰ POT release (sterile-search dataset, used with a 3-flavour fit) | θ₂₃, Δm²₃₁ (ν_μ disappearance) | 2 (from log dimensionality) |
+| `deepcore` | IceCube DeepCore 3-year high-stats sample B, public release, systematics hyperplanes | θ₂₃, Δm²₃₁ (atmospheric) | lifetime, atm. muons, ice absorption/scattering, optical efficiencies, flux (Barr), cross-section norms |
+| `orca` | KM3NeT ORCA6 433 kton | θ₂₃, Δm²₃₁ | energy scale, several norms |
+
+* Physics modules: `osc.jl` (three-flavour + exotic variants: `Darkdim_Masses`,
+  damping, matter effects `SI()`, Earth model `earth_layers` with PREM),
+  `atm_flux.jl`, `xsec.jl`.
+* The oscillation parameters and their **box priors** (`osc.jl`):
+
+| Parameter | Prior | Nominal |
+|---|---|---|
+| θ₁₂ | Uniform(atan√0.2, atan√1) ≈ [0.42, 0.785] | asin√0.307 |
+| θ₁₃ | Uniform(0.1, 0.2) | asin√0.021 |
+| θ₂₃ | Uniform(π/6, π/3) | asin√0.57 |
+| δCP | Uniform(0, 2π) | 1.0 |
+| Δm²₂₁ | Uniform(6.5e-5, 9e-5) eV² | 7.53e-5 |
+| Δm²₃₁ | NO: Uniform(2e-3, 3e-3); IO: Uniform(−3e-3, −2e-3) | 2.4e-3+Δm²₂₁ |
+
+  Normal vs inverted ordering are **two different prior supports** → two
+  posteriors, two evidences → a Bayes factor for the mass ordering.
+
+* The user-facing API (identical in the old scripts and Philipp's own driver):
+
+```julia
+osc = Newtrinos.osc.configure(Newtrinos.osc.OscillationConfig(
+        flavour=ThreeFlavour(), propagation=Basic(), states=All(), interaction=Vacuum()))
+physics = (; osc, atm_flux, earth_layers, xsec)
+experiments = (dayabay = Newtrinos.dayabay.configure(physics),
+               kamland = Newtrinos.kamland.configure(physics))
+likelihood = Newtrinos.generate_likelihood(experiments)
+priors     = Newtrinos.get_priors(experiments)
+posterior  = PosteriorMeasure(likelihood, distprod(; priors...))
+```
+
+* `src/analysis/analysis.jl` is **"the file where Philipp made the settings"**:
+  his command-line driver (tasks NestedSampling via UltraNest,
+  ImportanceSampling, Profile, Scan) written for his Dark-Dimension study,
+  with conditioning on δCP and λ parameters. The **"basic version"** we used is
+  the default `OscillationConfig()` = ThreeFlavour + Basic + All + Vacuum.
+* `src/analysis/molewhacker.jl` is the **ancestral MoleWhacker** living inside
+  his package (MGVI-Fisher local Gaussians, Sobol+LBFGS seeding, whack loop).
+  The thesis algorithm descends from it. This is the narrative bridge: the
+  method was invented for exactly these posteriors.
+
+## 3. What this repository did a year ago
+
+* `scripts/bechmark_neutrino*.jl` (the typo is in the filename): build a
+  Newtrinos posterior for a chosen experiment list, then run **two MoleWhacker
+  variants against each other** (baseline vs "Improved" with component
+  merging), recording per-parameter mean/SE/sd, 68/95 % quantiles, ESS,
+  efficiency, weight diagnostics, timings, component counts; JLD2 of samples.
+* **It never compared against standard samplers, never against published
+  values, and never posed a physics question.** That is exactly the gap.
+* 56 run directories (2025-08-28 → 2025-09-27), 17 complete. Empirical costs
+  on this machine:
+
+| Experiments | free d | Outcome |
+|---|---|---|
+| dayabay | 6 | minutes; final run 85 s; improved MW merged to **1 component, 0 whacks, η=0.98** → nearly Gaussian, too easy |
+| dayabay+kamland | 9 | ~5 min, completed repeatedly |
+| dayabay+kamland+minos | 11 | 12–36 min (once 2 h), completed; ~400 components, 20–24 whack iterations |
+| minos | 8 | completed (one 12 h overnight run); old note: "very spikey" |
+| deepcore (+others) | 18–22 | **never completed** ("uncomputable" in the old notes) |
+| orca (+others) | 18–21 | never completed |
+
+* Reusable: the posterior-assembly code, the logging/snapshot harness, the
+  metrics helpers (weighted means/quantiles), the plotting script, and the
+  completed runs as regression baselines. Not reusable as-is: the two old
+  MoleWhacker copies (the thesis-final `src/MoleWhacker.jl` in `02_molewhacker`
+  supersedes them), the dual root/src modules, the `.txt` graveyard.
+
+## 4. The physics chapter: options
+
+**Option A — Reactor pair (Daya Bay + KamLAND), d = 9.**
+Physics: θ₁₃ and Δm²₃₁ from Daya Bay, θ₁₂ and Δm²₂₁ from KamLAND — the
+classic complementary reactor measurement of two sectors; direct comparison
+with Daya Bay's and KamLAND's published intervals. Weakness: θ₂₃ and δCP are
+unconstrained by reactor data (posterior = prior in those directions), which
+is physically honest but leaves the posterior nearly Gaussian in the
+constrained directions — little for MoleWhacker to *demonstrate*.
+Cost: minutes per run. Risk: low.
+
+**Option B — Reactor pair + MINOS, d = 11. (Recommended core.)**
+Adds ν_μ disappearance: θ₂₃ and Δm²₃₁ become data-constrained, and the
+**θ₂₃ octant degeneracy** makes the posterior genuinely **bimodal** — the
+exact structure MoleWhacker was designed for and the synthetic benchmark
+scored it on (mode recovery, evidence). All three sectors of three-flavour
+mixing are then measured from real data in one joint fit, compared with
+Daya Bay, KamLAND, MINOS publications and the NuFIT global fit. The old runs
+prove this posterior completes in tens of minutes.
+Cost: ~20–40 min per MoleWhacker run at old knobs (less at benchmark budgets).
+Risk: low–moderate (MINOS "spikey" likelihood — a feature for the story).
+
+**Option C — B + one DeepCore/ORCA showcase.**
+Adds atmospheric physics (matter effects, Earth model) but d ≈ 19–22 and it
+never completed here. Only as a single MoleWhacker-only illustration, no
+replication, if time remains. Risk: high. Default: drop.
+
+**Option D — Dark-Dimension BSM posterior (Philipp's own research setup,
+`benchmark_hard.jl` / `analysis.jl`).** Maximally "his" physics, but exotic,
+expensive (needs DeepCore), and two weeks is not enough to do it credibly.
+Default: mention as outlook only.
+
+## 5. Deliverables of the chapter (Option B)
+
+Physics results (the centre of the chapter, as Philipp asked):
+1. Joint three-flavour posterior on real data (Daya Bay + KamLAND + MINOS):
+   marginal and pairwise posteriors of θ₁₂, θ₁₃, θ₂₃, Δm²₂₁, Δm²₃₁ (δCP
+   unconstrained, stated), with 68/95 % credible intervals.
+2. **Comparison with published analyses**: overlay of each experiment's
+   published best fit / 1σ (Daya Bay 2016/2022, KamLAND 2013, MINOS) and the
+   NuFIT global-fit values on our marginals; table of our intervals vs
+   published.
+3. **θ₂₃ octant**: posterior mass in the lower vs upper octant — a genuine
+   bimodal physics result, and the thing MoleWhacker's mixture proposal is
+   built to represent.
+4. **Mass-ordering Bayes factor** Z(NO)/Z(IO) from the self-normalized
+   evidence — a physics statement only the evidence-aware samplers (MW, NS)
+   can make at all.
+5. Nuisance-parameter posteriors (KamLAND scales, MINOS/xsec norms) — the
+   systematics story.
+
+Methodological results (supporting, in the thesis's established language):
+6. Same posterior sampled with MW, MH, NUTS, NS, IS — agreement of
+   marginals (W̄1 between samplers, since there is no analytic truth),
+   agreement of evidences (MW vs NS), cost in likelihood evaluations per
+   effective sample, and the running-efficiency portraits already used in
+   the thesis. Validation without a truth: cross-sampler agreement + profile
+   likelihood scans via `Newtrinos.profile` + published values.
+
+## 6. Plan to 28 September
+
+| Days | Work |
+|---|---|
+| 1 (today) | Environment smoke test (running). Decide option. **Send Philipp the plan today** so he sees the correction underway and can object early. Collect the citations (Daya Bay, KamLAND, MINOS, NuFIT). |
+| 2–3 | Build the neutrino problem adapter: Newtrinos posterior → thesis harness (`LikelihoodCounter` wrapper, prior-to-normal transform for NUTS/NS, MW on the BAT posterior directly). Validate: MW marginals vs MH on Option A (9-d). |
+| 4–7 | Campaign on Option B: MW, MH, NUTS, NS, IS; NO and IO orderings; a few seeds for MW/MH; profile scans for validation. Extract intervals, octant fractions, evidences. |
+| 8–11 | Write the chapter into the existing skeleton: physics motivation (oscillation formalism is short — the thesis has none yet), statistical model (likelihoods, systematics, priors), setup, results with published comparison, discussion. Figures via the thesis plotting library (triangle plots, running efficiency, evidence table). |
+| 12–13 | Integrate: intro/abstract/conclusion updates, cross-references, appendix additions, companion-repo update (new scripts, new data), rebuild, verify. |
+| 14 | Buffer; Philipp's feedback; submission formalities. |
+
+## 7. Risks and mitigations
+
+* Environment rot (Julia/BAT/Newtrinos pins): smoke test today; fallback is
+  a fresh environment pinned to the same Newtrinos revision.
+* Runtime: Option B is proven to complete; budgets are set by the old runs.
+  DeepCore/ORCA explicitly out of scope.
+* No analytic truth: validation by cross-sampler agreement, profile scans,
+  and published values — stated as such in the chapter.
+* Scope creep: the chapter is one joint fit, three experiments, five
+  samplers, two orderings. Nothing else.
+* Philipp buy-in: send the plan before building; ask for a 30-minute call.
+
+## 8. Decisions (taken 2026-09-11)
+
+1. **Option B**: Daya Bay + KamLAND + MINOS, 11 free parameters, NO and IO.
+2. Email Philipp today: draft in `EMAIL-PHILIPP-2026-09-11.md`.
+3. Dark-Dimension setup: not in the chapter at all.
+
+## 9. Smoke test (2026-09-11, `scripts/_smoke_newtrinos.jl`)
+
+The pinned environment instantiates (one-off precompile 16 min, 398
+packages). Real-data posteriors build and evaluate:
+
+| Experiments | free d | free parameters | ms / likelihood evaluation |
+|---|---|---|---|
+| dayabay | 6 | Δm²₂₁, Δm²₃₁, δCP, θ₁₂, θ₁₃, θ₂₃ | 1.3 |
+| dayabay+kamland | 9 | + kamland_energy_scale, kamland_flux_scale, kamland_geonu_scale | 1.5 |
+| dayabay+kamland+minos | 11 | + nc_norm, nutau_cc_norm | 6.0 |
+
+At 6 ms per evaluation a 5×10⁵-evaluation run takes ≈ 50 min, a 5×10⁴ run
+≈ 5 min: the thesis's own budget ladder is usable unchanged on Option B.
+Gradient-based samplers (NUTS) pay roughly d+1 evaluations per gradient with
+forward-mode AD, so their wall time is ≈ 10× higher at equal budget.
+
+## 10. Status 2026-09-11, 12:30 — first real-data results
+
+Everything below lives in `neutrino/` (see `neutrino/README.md` for the
+pipeline and `neutrino/CHAPTER-DRAFT.md` for the chapter text with numbers).
+
+**Physics (MoleWhacker, 3 seeds per ordering, B = 5·10⁵):**
+
+* sin²2θ₁₃ = 0.0854 ± 0.0031 (Daya Bay 0.0851 ± 0.0024); Δm²₃₂ = 2.448 ± 0.051
+  ·10⁻³ eV² NO (Daya Bay 2.466 ± 0.060, NuFIT 2.438), −2.539 ± 0.055 IO.
+* Δm²₂₁ = 7.74 ± 0.22 ·10⁻⁵ eV² — 1.2σ above KamLAND (7.49 ± 0.20). A
+  KamLAND-only fit gives the same value, so this is the digitised KamLAND
+  module, not the combination. tan²θ₁₂ = 0.46 (+0.08 −0.07) (KamLAND 0.436).
+* θ₂₃ bimodal (octant degeneracy), modes at sin²θ₂₃ = 0.39 / 0.63,
+  P(upper octant) = 0.63 (NO), 0.62 (IO). Profile likelihood (Newtrinos'
+  own LBFGS profiler) agrees: Δχ² = 1.1 between the octant minima, maximal
+  mixing disfavoured at Δχ² = 4.1.
+* Mass ordering: ln K(NO/IO) = 0.45 ± 0.02 — no preference, as expected for
+  vacuum disappearance data.
+* δ_CP flat; nuisances: MINOS n_NC pulled to 0.86 ± 0.13, KamLAND flux +0.5σ.
+
+**Samplers so far:** at 5·10⁴ MW gives ESS 3 400 from 38 k evaluations,
+MH 73, NS 3, IS 1.5. NUTS needs 2·10⁵ for warm-up alone and gives ESS 123
+at 5·10⁵ (86 min). MW at 5·10⁵ stops on T_max after 1.2·10⁵ evaluations
+(seed phase 82 % of cost, final IS efficiency 57 %).
+
+**Campaign:** 18 of ~60 cells done; four background processes plus an
+orchestrator (`neutrino/scripts/orchestrate_wave1.ps1`) that starts the
+NS reference runs and wave 2 automatically. Expected completion: 5·10⁴ grid
+and MH 5·10⁵ this afternoon/evening; NS/IS 5·10⁵, NS reference runs and
+wave-2 replicates overnight. Progress: `neutrino/out/logs/orchestrator.log`,
+finished cells have a `summary.json`.
+
+**Figures ready:** `neutrino/out/figs/nu_{marginals,octant,nuisance,profile,mw_iter}_{NO,IO}.pdf`;
+corner plot, agreement and evidence figures appear once MH/NS top-budget
+cells exist. Tables: `neutrino/out/tables/tab_nu_*.tex`.
+
+## 11. Status 2026-09-11, 20:30
+
+* **Primer written for us:** `neutrino/PHYSICS-PRIMER.md` — neutrino
+  oscillations from zero, the exact designs of Daya Bay / KamLAND / MINOS and
+  how Newtrinos turns each into a likelihood, the 11-parameter model and its
+  priors, the cube mapping, the cell grid, the metrics, the hypotheses, and
+  the current numbers. To be read before any thesis text is written.
+* **Campaign mishap, corrected:** the morning orchestrator killed queue A
+  (MH NO 5·10⁵ seed 11) instead of D because the PID→queue mapping I recorded
+  was wrong; D and D2 then ran the same cells twice (identical seeds, no
+  harm). `orchestrate_v2.ps1` now re-runs the lost cell (`queues/redo_A.txt`),
+  starts wave 2 and the two NS reference runs, and stops D/D2 once the IS IO
+  cell is written. Log: `neutrino/out/logs/orchestrator_v2.log`.
+* **40 cells done.** All twelve MW cells; the whole 5·10⁴ grid; at 5·10⁵:
+  MH IO-11 and NO-23, NUTS both orderings, NS both orderings, IS NO. Running:
+  MH IO-23, IS IO; queued: MH NO-11 (redo), MH seed 41, NUTS/NS seed 23,
+  nsref NO/IO.
+* **5·10⁵ sampler numbers:** MW ESS 2 200 (NO) / 1 250–2 000 (IO) from
+  1.15·10⁵ evaluations in 13–17 min; MH ESS 644 / 331 in 1.8 h with
+  R̂(θ₂₃) = 1.007 / 1.010 (chains now cross octants); NUTS ESS 123 / 53, one
+  chain, 86–89 min; NS ESS 212 / 77, stopped on the call cap with 11 nats of
+  dlogz outstanding; IS ESS 10. W₁ to the pooled MH reference (prior-width
+  units, NO): MW 0.005–0.007, NUTS 0.010, NS 0.012, IS 0.041; at 5·10⁴ MW
+  0.004–0.006, MH 0.008–0.010, NS 0.07–0.10, IS 0.06–0.12.
+* **Evidence:** MW ln Z stable to 0.01 across seeds and 0.08 across budgets
+  (NO −511.07, IO −511.52); budget-limited NS 1.5 nats higher; IS in between
+  with large scatter. ln K(NO/IO): MW 0.45 ± 0.02, NS 0.22 ± 0.07 (1 seed),
+  IS 0.58 ± 0.63. The nsref runs decide which is right.
+* **All 14 figures render**, including corner (MW vs MH, 5·10⁵), agreement and
+  evidence; legends moved out of the axes, corner ticks thinned.
+* **Thesis-consistency note for later (no edit now):** the harness writes
+  `tau_mu = 0.5`, `tau_Sigma = 0.2 d` into `metadata.json`, but never passes
+  them to `whack_many_moles`; the merge tolerances in force are the
+  algorithm's defaults 10⁻³ / 10⁻⁵, exactly what thesis Table 6.2 says.
+
+## 12. Status 2026-09-11, 22:00 — primer study edition, campaign on track
+
+* **Philipp's second mail (21:40):** recommends applying to TUM for an
+  extension of about eight weeks (precedents exist; needs a good
+  justification). What is missing is the physics, in two senses: (a) the
+  algorithm applied to a concrete physical problem with physical results,
+  (b) a written thesis motivated and structured by the physics rather than
+  the algorithm. Six to eight weeks of full effort would make a solid physics
+  thesis "gut möglich". No email is being written now; the user is studying
+  the physics first.
+* **`neutrino/PHYSICS-PRIMER.md` rewritten as a study edition** (≈1090
+  lines): how-to-use guide; Part 0 one-page map; Part 1 with Standard-Model
+  context, history, explicit PMNS matrix, the two-flavour derivation and the
+  1.267 unit check, conventions (Δm²ₑₑ, sin²2θ vs sin²θ), degeneracies and
+  what breaks them, matter effects with numbers, what oscillations cannot
+  measure; Part 2 with detector/beam details, backgrounds, exactly what
+  Newtrinos does with each release and the implications (Daya Bay anchored
+  far-hall re-fit, KamLAND digitisation, MINOS beam-only + Gaussian
+  conditioning), a "what each cannot tell us" section, and the other
+  Newtrinos modules (Super-K, IceCube, ORCA, JUNO/TAO, COHERENT); Part 3
+  with prior remarks, the evaluation flow and cost model, Occam/Jeffreys,
+  Bayesian vs frequentist reporting; Part 4 with the honest limitations list
+  (physics model + sampling study), "what else we could do" tiered by cost
+  (incl. a physics-first thesis skeleton and what an 8-week extension buys),
+  updated numbers; Part 5 figure guide; check-yourself questions per part
+  with answers in Appendix B.
+* **Teaching figures** `neutrino/out/figs/primer_*.png` from
+  `scripts/60_primer_figures.jl`: survival probabilities vs L/E with the
+  three experiments' windows; MINOS-like octant degeneracy and Δm² shift;
+  Daya Bay/KamLAND survival vs energy; and, via the Newtrinos modules' own
+  `plot` functions, data vs prediction for all three experiments at the
+  joint profile best fit (NO). All six verified visually.
+* **Campaign:** `orchestrate_v3.ps1` did its job — IS IO 5×10⁵ finished
+  21:15, queue D stopped, nsref_NO (pid 30588), nsref_IO (30424) and wave2_IO
+  (18848) started and alive. 42 cells done. Running at 22:00: MH NO-11
+  (redo), MH NO-41, MH IO-41, nsref NO, nsref IO; queued behind them: NUTS
+  and NS seed 23, both orderings. Aggregation reads B from the result file,
+  so the `B4e+06` nsref directory names need no handling.
+* **Tomorrow:** check `orchestrator_v3.log` and the queue logs, count
+  `summary.json` (≈49 cells + 2 nsref expected), run `20_aggregate.jl` →
+  `30_plots.jl` → `40_tables.jl`, look at the nsref band in `nu_evidence`,
+  then update `CHAPTER-DRAFT.md` and discuss the primer's Part 4.7/4.8
+  (limitations, options, thesis skeleton, extension) with the user.
+
+## 13. Status 2026-09-12, 13:00 — campaign complete; the evidence arbitration
+
+* **Campaign complete at 00:06:** 51 cells (full grid, two NS runs to
+  Δln Z < 0.5, KamLAND-only fit); no process running. Pipeline re-run
+  (`20_aggregate` → `30_plots` → `40_tables`); all figures and tables
+  current. Final sampler numbers are in `CHAPTER-DRAFT.md` §4 and
+  `PHYSICS-PRIMER.md` 4.6.
+* **The NS reference is wrong.** The two nested-sampling runs converged
+  (dlogz criterion, 8.4–8.5·10⁵ evaluations, 2.4 h, ESS 18–19 k, posterior
+  marginals in agreement with everything else) at ln Z = −509.39 ± 0.05 (NO)
+  and −509.17 ± 0.05 (IO) — 1.7/2.4 nats above MoleWhacker and with the
+  opposite sign of ln K (−0.23).
+* **Arbitration (`70_evidence_check.jl`, new):** defensive importance sampling
+  from a KDE mixture on the pooled MH chains (3000 kernels, h²Σ_MH, 10 %
+  uniform, 1.5·10⁵ draws, h = 0.6 and 0.9, ESS 14–25 k) gives
+  ln Z_NO = −510.87 ± 0.01, ln Z_IO = −511.28 ± 0.01, **ln K = 0.42 ± 0.01**;
+  the pooled plain-IS draws (6.5·10⁵) agree (−510.46 ± 0.29, −511.22 ± 0.18).
+  Hence NS-converged is biased **high by 1.47 / 2.11 nats** (the ellipsoidal
+  clipping failure mode), MoleWhacker **low by 0.22 / 0.25** (0.13/0.14 at
+  5·10⁴) with a seed spread ten times smaller than its error.
+* **Located MoleWhacker's offset (`72_mw_mixture_check.jl`, new):** each
+  cell's final mixture is stored in `result.h5` (`extras[:mixture]`, 169–174
+  components, PriorToNormal space). Fresh i.i.d. draws from it (6·10⁴ per
+  cell) give ln Z = −510.876/−510.872/−510.854 (NO), −511.268/−511.288/−511.268
+  (IO) — the reference within 0.02, ESS 1.6–20 k. The mixture is right; the
+  algorithm's *pooled-cloud* estimator (all accumulated batches, each drawn
+  from the mixture as it stood at its creation, weighted with the final
+  mixture) is what is biased. Same effect on the octant: pooled-cloud
+   P(upper) 0.63/0.62, fresh draws 0.60/0.61 (per seed −0.01 to +0.06),
+   reference 0.60–0.61/0.62 (NO/IO). Recorded as
+  a finding + recommendation (deterministic-mixture weighting or a final fresh
+  draw); the algorithm is not changed.
+* **Weight diagnostics (`71_is_diagnostics.jl`, new):** Pareto-k̂ of MW
+  clouds −0.4…0.3 (healthy, ESS/N 0.3–0.65), budget-limited NS 0.7–4.1, IS
+  2.3–3.8; `is_diagnostics.csv`.
+* **Pipeline changes:** `30_plots.jl` evidence figure now draws the
+  defensive-IS reference band and the NS-converged run as a distinct marker;
+  `40_tables.jl` evidence table has the reference row on top and labels the
+  NS row "run to Δln Z < 0.5" (no longer "reference").
+* **Documents updated:** `CHAPTER-DRAFT.md` (§2.3, §3.3 rewritten with the
+  arbitration table and three findings, §3.5, §4 final table and
+  observations, §5; MINOS+ inclusion corrected), `PHYSICS-PRIMER.md` (4.2
+  complete, 4.6 final numbers, new 4.6b "the evidence arbitration", 4.7 items
+  13–14, hypothesis 5 outcome, Part 5, Appendix A/B).
+* **Pending user-side thesis notes** seen in `02_molewhacker/humanreview.txt`
+  (abstract numbers, W₁ finite-sample wording, KL-vs-iteration plot idea,
+  FAILED-SANITY mention, Fig. 8.7 panel A, eggbox triangle plots of the
+  better method): not acted on — thesis edits remain off until agreed.
+* **Next:** discuss 4.6b with the user; then the cheap additions of primer
+  4.8 (single-experiment fits, posterior-predictive bands, prior-sensitivity
+  check, ordering-preference decomposition) if wanted.
+
+## 14. Status 2026-09-12, 21:00 — thesis chapter drafted on branch `neutrino-chapter`; side studies
+
+* **Thesis branch.** The chapter now exists in final thesis form on the branch
+  `neutrino-chapter` of the thesis repository (`chapters/07-neutrino-application.tex`,
+  about 8500 words, seven sections; `appendices/D-neutrino-supplement.tex`
+  with the IO counterparts, nuisance posteriors and per-seed arbitration tables;
+  12 physics macros, 6 acronyms, 23 verified bib entries, 19 figures registered
+  in `docs/FIGURES-INDEX.md`, 7 glossary terms). `main.tex` only gained the
+  two `\include` lines; nothing in the existing chapters was changed. The five
+  thesis check scripts pass for the new files and `latexmk` builds (215 pages;
+  the chapter appears as Chapter 9, the appendix as Appendix B in the compiled
+  PDF). Nothing is committed yet.
+* **Figures reworked for print** (`30_plots.jl`, `80_posterior_predictive.jl`,
+  new `90_export_thesis.ps1`): MH is drawn black dashed as the reference chain
+  (the thesis orange was indistinguishable from MoleWhacker's vermilion);
+  marginals legend in two banks; octant figure with a separate P(upper) strip;
+  evidence figure wide with a right-hand legend; intro figure with the three
+  experiment windows labeled in rows and the legend under the flat part of the
+  curves; data figure with posterior-predictive bands; profile figure with
+  American spelling; agreement figure with integer-decade ticks. Filenames in
+  the thesis follow `nu__<descriptor>__d<d>__B<budget>__<alg>__<no|io>.pdf`
+  (lowercase ordering token, because the acronym checker scans
+  `\includegraphics[..]{..}` arguments).
+* **Subset study** (`74_subset_study.jl`, 24 cells): see `neutrino/README.md`
+  "Side studies". Headline: the whole ordering preference (ln B = 0.36 of the
+  joint 0.42) lives in the Daya Bay + MINOS pair — the two Δm²₃₁ measurements
+  (2.55 ± 0.07 vs 2.49 ± 0.09 for NO, −2.50 vs −2.39 for IO) are more
+  compatible under NO, exactly the ± cos 2θ₁₂ Δm²₂₁ mechanism of the physics
+  section. Single experiments and the other two pairs give ln B = 0 within
+  0.04. Prior flat in sin²θ instead of θ: P(upper) −0.003, ln B ≤ 0.01. Written
+  into the chapter as Sec. "Which Experiment Measures What" with figure
+  `nu_subsets_NO` (IO in the appendix) and the decomposition table.
+* **Iteration-cap ablation** (`73_tmax_study.jl`, runs in `out_ablation/`):
+  MoleWhacker with T_max lifted, seed 11 of both orderings, running since
+  16:44; at t ≈ 170–195 (56–60 % of the budget) the pooled-cloud ESS is
+  2.3–2.9·10⁴ (η ≈ 0.08–0.10 against 0.019 at T_max = 20), about 2 min per
+  iteration at 1400–1600 components. The script produces a preliminary figure
+  from the stderr log until `result.h5` exists; the chapter paragraph on the
+  cap will be written from the final numbers (queue continues with seeds 23
+  and 41, several hours each).
+* **Open:** commit thesis branch and companion repo (marker scan first);
+  T_max paragraph + figure into the chapter; abstract/introduction/conclusion
+  adaptation on `main` after Philipp has seen the chapter.
+
+## 15. Status 2026-09-12, 22:00 — subset study final (fresh-draw evidences); branch committed
+
+* **Fresh-draw evidences for all 24 subset cells** (`74 --fresh`, 2.4 h; new
+  `--reuse-fresh` flag re-plots from the cached `subset_cells.csv`). The
+  pooled-cloud offset of the small fits is not a constant: Daya Bay −0.04,
+  KamLAND +0.10, MINOS +0.05 (pooled minus fresh), so the ratios ln R needed
+  the fresh values. Final numbers (mean over seeds ± half-range, cube-normalized):
+
+  | subset | ln Z(NO) | ln Z(IO) | ln B(NO/IO) |
+  |---|---|---|---|
+  | Daya Bay | −171.968 ± 0.001 | −171.968 ± 0.001 | −0.001 ± 0.001 |
+  | KamLAND | −68.109 ± 0.005 | −68.092 ± 0.001 | −0.016 ± 0.005 |
+  | MINOS | −271.905 ± 0.001 | −271.923 ± 0.002 | 0.018 ± 0.002 |
+  | DB + KL | −240.049 ± 0.001 | −240.051 ± 0.001 | 0.002 ± 0.001 |
+  | DB + MI | −442.792 ± 0.001 | −443.177 ± 0.001 | **0.384 ± 0.001** |
+  | KL + MI | −340.108 ± 0.017 | −340.120 ± 0.005 | 0.012 ± 0.018 |
+  | all three (fresh, 3 seeds) | −510.868 ± 0.011 | −511.275 ± 0.010 | 0.407 ± 0.015 |
+
+  Consistency ratios ln R (physical normalization): DB–KL 0.028 (NO) /
+  0.009 (IO) — null; KL–MI −0.09 / −0.10 — two weak θ₁₃ constraints, no
+  reward for agreement; DB–MI 1.08 / 0.71 — the shared Δm²₃₁ agrees far
+  better than the prior, and the difference 0.37 is the pair's Bayes factor.
+  Chapter text, `tab:nu-subsets` and the appendix caption carry these values.
+* **Figure `nu_subsets_<ORD>`** re-laid: shared y-label, explicit ticks
+  (δCP at 0, π, 2π; sign-aware Δm²₃₁ ticks for the IO), no boundary-tick
+  collisions between panels.
+* **Thesis branch committed:** `31e35bb` on `neutrino-chapter` (chapter,
+  appendix, 18 figures, bib, macros, docs; marker scan clean; no trailers).
+  216 pages, chapter pp. 97–117 of the arabic numbering (Chapter 9), Appendix B.
+* **Ablation:** seed-11 runs still going (1 core each; the iteration time
+  grows with the component count, 1.5 min/iteration at t ≈ 170 and
+  3.5 min/iteration at t ≈ 230; ≈ 385 iterations needed, so they finish in
+  the early morning of 13 Sep); seed 23 for both orderings is queued
+  automatically (`out_ablation/chain_seed23.ps1`, pid 11688). Preliminary
+  figure `nu_tmax_prelim` from the logs: pooled-cloud ESS 4.7·10⁴ (NO, t = 234)
+  and 3.7·10⁴ (IO, t = 257) at 65–70 % of the budget, η ≈ 0.10–0.13.
+* **New mechanism figure** `nu_ordering_mechanism` (→ `fig:nu-mechanism`):
+  |Δm²₃₁| marginals of Daya Bay alone, MINOS alone and the joint fit, NO and
+  IO side by side, medians printed — the whole ordering story in one picture.
+* **Corner plots rewritten natively** (`fig_corner` in `30_plots.jl`, no
+  PairPlots): two-tone highest-density fills for MoleWhacker (68.3 % dark,
+  95.4 % light), MH contours at the same levels, upright ticks, full text
+  width. PairPlots' `Contourf` silently dropped outer rings that touched the
+  panel edge (visible in the old IO corner as "missing" 95 % fills).
+* Commits on `neutrino-chapter`: `31e35bb` (chapter), `e1f9961` (fresh
+  evidences, mechanism figure), `2bb80fc` (corner plots, discussion tie-in),
+  `b85b603` (docs).
+* **Automation left running** (all in `neutrino/out_ablation/`): the two
+  queue processes (pids 31732 NO, 29724 IO) run seeds 11 → 23 → 41
+  sequentially from `queues/ablation_tmax_<ORD>.txt`; `watch_iters.ps1`
+  (pid 11976) logs iteration timestamps; `chain_tmax_study.ps1` (pid 28704)
+  waits for the two seed-11 `result.h5` files, then runs
+  `73_tmax_study.jl --fresh --finished-only` and `90_export_thesis.ps1`
+  and writes `chain_tmax_study.done`. What remains by hand: the "Lifting
+  the cap" paragraph with `fig:nu-tmax` after `fig:nu-mw-iter-NO` in
+  `sec:nu-results-samplers`, the cap sentence in `sec:nu-discussion`, and
+  the FIGURES-INDEX status of `fig:nu-tmax`; re-run 73 when seeds 23/41
+  finish (a day or two later) to add them to the figure.
+
+## 16. Status 2026-09-13, 15:30 — runs, style pass, self-contained repo, physics-scope evaluation
+
+### 16.1 Runs
+
+* **T_max ablation, seed 11 finished** (NO 05:09, IO 04:20). With the cap
+  lifted MoleWhacker spends the whole budget: NO 301 iterations, 2417
+  components, N_L = 5.008e5; IO 332 iterations, 2670 components,
+  N_L = 5.003e5. Pooled-cloud N_eff rises from 2276 → 68 981 (NO, η 0.019 →
+  0.138) and 2018 → 54 230 (IO, η 0.017 → 0.108). The evidence bias of the
+  20-iteration mixture disappears: cloud ln Z minus fresh-draw ln Z is
+  −0.20 (NO) / −0.24 (IO) at T = 20 and +0.007 / +0.008 with the cap lifted.
+  Fresh-draw ESS per 60 000 draws 20 394 → 36 098 (NO) and 11 633 → 37 834
+  (IO). Marginal W1 to the MH reference halves (0.0054 → 0.0029 NO,
+  0.0095 → 0.0035 IO). Price: wall time 17 min → 12.2 h (NO) / 11.4 h (IO);
+  the likelihood is not the bottleneck, the mixture bookkeeping with
+  thousands of components is. ln B(NO/IO) from the uncapped fresh-draw
+  evidences: 0.403 (protocol fresh: 0.392). The "Lifting the cap" paragraph
+  and `fig:nu-tmax` are in the chapter; `73_tmax_study.jl --fresh
+  --finished-only` ran at 05:11–06:07 and the export went to the thesis.
+* **Seed 23 running** in the same two queue processes (pids 31732 NO,
+  29724 IO); at 12:56 NO was at iteration 249, IO at 285; ≈ 5.5 min per
+  iteration now; expected to finish 16:30–18:00. A detached chain
+  (`out_ablation/chain_tmax_seed23.ps1`, pid 32588) re-runs the study and
+  the export when both `result.h5` exist.
+* **Seed 41 put on hold** (instruction of 13 Sep: no new run > 3 h without
+  approval). Zero-byte `result.h5` placeholders in the two seed-41 run
+  directories make `10_run_cell.jl` skip the cell ("cell exists, skipping"),
+  so the queue processes end after seed 23; `73_tmax_study.jl` ignores
+  zero-byte files (`finished(dir)`). Details: `out_ablation/README-HOLD.md`.
+
+### 16.2 Style pass on the chapter (user feedback on the PDF)
+
+* Captions: the bolded "What is plotted." opener and the "Generated by
+  <script>.jl" provenance sentences were not thesis style (surveyed all
+  captions of chapters 6–8 and Appendix B). Removed from all 19 neutrino
+  captions; "Reading the figure." → "Reading the panels/markers."; table
+  provenance moved into `% source:` comments. The remaining structure
+  (plain descriptive opener, `\textbf{Settings.}`, `\textbf{Reading the …}`)
+  is the one used in the existing chapters.
+* The two-flavour oscillation formula `eq:nu-posc` was 38 pt too wide; now
+  an `align` with one number, as `06-benchmark-design.tex` does it.
+* Literal chapter numbers: none in the new files except one code comment
+  ("Ch. 7"), replaced by words. The "Chapter 10" on p. 84 of the old PDF is
+  `\cref{ch:conclusion}` in `07-results.tex` resolving correctly — the
+  conclusion *is* Chapter 10 once the neutrino chapter is included; the
+  sentence's wording ("the natural continuation … takes stock and lays out
+  that path") is stale, not the number. Listed with the other seams in
+  `docs/MERGE-SEAMS-neutrino.md`.
+* Full build: 222 pages, no undefined references, no overfull boxes > 20 pt,
+  `scripts/run-all.py` shows no new issues (the `lst:` label warnings are the
+  same check-script limitation as for Appendix C).
+* Appendix D now ends with `sec:appendix-nu-code` (five listings in the
+  Appendix C conventions: config + priors, cube target, cell driver,
+  defensive-IS reference, fresh-draw check + cube→physical constant).
+* Bibliography: 23 new entries listed in `docs/BIB-ADDITIONS-neutrino.md`
+  (key, full reference, DOI/arXiv, where cited, supported claim) for the
+  review pass; `Eller2025` → `Eller2026` (arXiv posting 13 Aug 2026).
+
+### 16.3 Self-contained repository
+
+`neutrino/` now carries verbatim copies of the harness
+(`harness/experiments/src/**`) and of `MoleWhacker.jl`
+(`harness/scripts2/algo/`), with SHA-256 hashes in `harness/PROVENANCE.md`;
+all scripts use paths relative to `@__DIR__`/`$PSScriptRoot` and
+`--project=.`; smoke tests 01/02 pass. Not yet `git init` — waiting for the
+repository URL. `out/` (777 MB) and `out_ablation/` (2.1 GB) must not go
+into git; the figures and tables do.
+
+### 16.4 Physics-scope evaluation: full-capacity MoleWhacker, more experiments, ~20 dimensions
+
+**What the three-experiment fit is.** A reactor + long-baseline "mini
+global fit": Daya Bay (3158 d) fixes θ₁₃ and |Δm²_ee|, KamLAND (7 y) fixes
+θ₁₂ and Δm²₂₁, MINOS (16e20 POT) fixes θ₂₃ and |Δm²_μμ|; five of the six
+oscillation parameters are measured from real data, δCP is unconstrained
+(no appearance channel in Newtrinos), the θ₂₃ octant is weak (MINOS alone,
+P(θ₂₃ > π/4) = 0.63). Every measured value agrees with the publication of
+the respective experiment within errors (`tab:nu-physics`), and the
+mass-ordering preference ln B = 0.41 is traced to the Δm²_ee–Δm²_μμ
+interplay of Daya Bay and MINOS (`fig:nu-mechanism`, subset study). That is
+real physics with a real mechanism, and the sampler comparison is made on a
+real 11-parameter posterior.
+
+**What is missing for a "global fit"** (NuFIT 6.0 / Capozzi et al. / de
+Salas et al. combine solar, reactor, accelerator disappearance *and
+appearance*, atmospheric): solar experiments (not in Newtrinos), T2K/NOvA
+appearance (not in Newtrinos → no δCP, no strong octant), atmospheric data.
+The atmospheric sector is the one Newtrinos *does* offer.
+
+**Inventory of the pinned Newtrinos (fa87689d, `HQ8a8`)** — measured on
+this laptop, 4 threads, with the two ablation processes running:
+
+| module | data | free parameters it adds | ms per likelihood call |
+|---|---|---|---|
+| dayabay + kamland + minos (vacuum) | real | 11 total | 9 |
+| same, with matter effects (`osc.SI`) | real | 11 | 12–20 |
+| **deepcore** (9 y verification sample, IceCube data release 2025 of PRD 108, 012014) | **real** | +7 detector, +6 atm-flux (Barr) → d = 24 with the three | ≈ 100–130 |
+| orca (ORCA6 433 kton·y, KM3NeT open data) | real | +6 detector (+6 flux shared) → d = 30 with the three and DeepCore | ≈ 400–450 |
+| super_k (SK I–V atmospheric 2023 release) | real | +18 (unbounded Normal priors) | **fails at this commit** (`xsec.scale` signature mismatch); the release also lacks the systematic response functions |
+| juno, tao, ic_upgrade | simulated (Asimov, 6 y) | — | not a real-data result |
+| coherent (CEvNS CsI / LAr) | real | no oscillation parameters | irrelevant here |
+
+Atmospheric experiments need Earth-crossing matter propagation; Newtrinos
+only defines the layered propagation with `osc.SI`, so `neutrino_problem.jl`
+now switches matter effects on automatically when an atmospheric module is
+present (`needs_matter`), and keeps vacuum propagation for the thesis
+configuration (unchanged protocol, unchanged results).
+
+**Feasibility probe of Daya Bay + KamLAND + MINOS + DeepCore (d = 24, NO):**
+config builds (24 free parameters, 7 with Gaussian pulls, all supports
+finite); likelihood 98 ms, ForwardDiff gradient 2.7 s (≈ 28 likelihood
+walls; counted as 24 units); a 60-iteration L-BFGS from the Newtrinos
+nominal point (12.5 min, 4551 units) lands at sin²θ₂₃ = 0.536,
+Δm²₃₂ = 2.407e-3 eV², sin²θ₁₃ = 0.02203, sin²θ₁₂ = 0.312,
+Δm²₂₁ = 7.73e-5 — the IceCube publication behind the module reports
+sin²θ₂₃ = 0.51 ± 0.05 and Δm²₃₂ = 2.41 ± 0.07 × 10⁻³ eV² (NO), and the
+module ships the official 90 % contour as CSV for an overlay. A DeepCore-
+only scan with nuisances at nominal peaks at maximal mixing
+(sin²θ₂₃ = 0.50). The physics is there and it is validated.
+
+**Cost of a 24-parameter campaign at the thesis budget B = 5e5:** pure
+likelihood time 5e5 × 0.1 s ≈ 14 h per cell for MH, NS, IS; NUTS ≈ 21 000
+gradients × 3 s ≈ 17 h; MoleWhacker ≈ 3.5–4 h (seed phase 62 parallel
+L-BFGS starts ≈ 2.6e5 units ≈ 2.5–3 h wall, then 20 refinement iterations
+≈ 40 min). The full protocol (5 samplers × 2 orderings × 3 seeds = 30 cells)
+is ≈ 400 h — not possible before 28 September on this machine. ORCA6 is
+4× more expensive again (60 h per MH cell) — out.
+
+**Recommendation.**
+1. Keep the 11-parameter three-experiment campaign as the chapter's core.
+   It is complete, protocol-exact, and its physics is right.
+2. Offer one extension section "Towards a global fit: adding IceCube
+   DeepCore" with d = 24: MoleWhacker (protocol, T_max = 20) and the MH
+   reference chain, NO and IO, one seed — 4 cells, ≈ 2 × 4 h + 2 × 14 h
+   ≈ 36 h of compute, ≈ 20 h wall in two lanes once the ablation processes
+   have finished (tonight). Deliverables: the 24-parameter posterior, the
+   (sin²θ₂₃, Δm²₃₂) credible region over the official IceCube 90 % contour
+   (physics validation), the sharpened θ₂₃ octant and |Δm²₃₂|, the
+   ordering Bayes factor with atmospheric data, nc/ντ-CC normalizations
+   constrained by data instead of priors — and the MoleWhacker-vs-MH
+   comparison "in 20+ dimensions" that the question was about. Each cell
+   exceeds 3 h → needs approval. Optional third lane: NUTS (17 h per cell).
+3. Not recommended: ORCA6 (cost), Super-K (module broken at the pinned
+   commit; the public release cannot reproduce the SK fit anyway),
+   JUNO/TAO/Upgrade (simulation only), COHERENT (no oscillation content).
+4. Full-capacity MoleWhacker: answered by the T_max ablation. Keep the
+   protocol cells as the like-for-like comparison (same T_max as the
+   benchmark), present the uncapped runs as the algorithm's full-capacity
+   result (done in the chapter); seed 23 lands today, seed 41 only with
+   approval (12 h per ordering).
+
+Probe scripts live in `%TEMP%` (`nu_time_exps.jl`, `nu_probe_deepcore2.jl`);
+nothing of this touched the campaign outputs.

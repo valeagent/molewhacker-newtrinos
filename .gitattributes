@@ -1,0 +1,3 @@
+# Store every file byte-for-byte (no end-of-line conversion): the harness
+# copies under harness/ are verified against SHA-256 hashes in PROVENANCE.md.
+* -text

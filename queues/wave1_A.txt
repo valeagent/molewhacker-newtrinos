@@ -1,0 +1,5 @@
+# wave 1, queue A — MoleWhacker at the top budget, normal ordering (run with -t 4)
+mw NO 5e5 11
+mw NO 5e5 23
+mw NO 5e5 41
+mh NO 5e5 11

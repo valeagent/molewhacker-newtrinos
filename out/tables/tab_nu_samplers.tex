@@ -1,0 +1,29 @@
+\begin{tabular}{@{}llrrrrrl@{}}
+  \toprule
+  Sampler & budget & \(\Nlike\) used & \(\neff\) & \(\neff/\Nlike\) & \(\overline{W}_1\) & \(\ln\evidence\) & stop \\
+  \midrule
+  \multicolumn{8}{@{}l}{\emph{normal ordering}} \\
+  MoleWhacker & \(5 \times 10^{4}\) & \(38\,\mathrm{k}\) & 3172 & \(8.2 \times 10^{-2}\) & 0.005 & \(-511.00 \pm 0.01\) & \(T_{\max}\) (\(n=3\)) \\
+  MH & \(5 \times 10^{4}\) & \(50\,\mathrm{k}\) & 43.3 & \(8.7 \times 10^{-4}\) & 0.010 & -- & budget (\(n=3\)) \\
+  NS & \(5 \times 10^{4}\) & \(41\,\mathrm{k}\) & 5.1 & \(1.3 \times 10^{-4}\) & 0.089 & \(-511.29 \pm 0.31\) & budget (\(n=3\)) \\
+  IS & \(5 \times 10^{4}\) & \(50\,\mathrm{k}\) & 2.0 & \(4.0 \times 10^{-5}\) & 0.102 & \(-510.34 \pm 0.92\) & budget (\(n=3\)) \\
+  MoleWhacker & \(5 \times 10^{5}\) & \(118\,\mathrm{k}\) & 2232 & \(1.9 \times 10^{-2}\) & 0.006 & \(-511.09 \pm 0.01\) & \(T_{\max}\) (\(n=3\)) \\
+  MH & \(5 \times 10^{5}\) & \(500\,\mathrm{k}\) & 644 & \(1.3 \times 10^{-3}\) & 0.004 & -- & budget (\(n=3\)) \\
+  NUTS & \(5 \times 10^{5}\) & \(456\,\mathrm{k}\) & 103 & \(2.3 \times 10^{-4}\) & 0.009 & -- & budget (\(n=2\)) \\
+  NS & \(5 \times 10^{5}\) & \(345\,\mathrm{k}\) & 185 & \(5.4 \times 10^{-4}\) & 0.015 & \(-509.53 \pm 0.11\) & maxcall (\(n=2\)) \\
+  IS & \(5 \times 10^{5}\) & \(500\,\mathrm{k}\) & 9.8 & \(2.0 \times 10^{-5}\) & 0.042 & \(-510.62\) & budget \\
+  NS & \(4 \times 10^{6}\) & \(844\,\mathrm{k}\) & 18911 & \(2.2 \times 10^{-2}\) & 0.011 & \(-509.39\) & \(\Delta\ln\evidence\) \\
+  \midrule
+  \multicolumn{8}{@{}l}{\emph{inverted ordering}} \\
+  MoleWhacker & \(5 \times 10^{4}\) & \(37\,\mathrm{k}\) & 3835 & \(1.0 \times 10^{-1}\) & 0.005 & \(-511.42 \pm 0.03\) & \(T_{\max}\) (\(n=3\)) \\
+  MH & \(5 \times 10^{4}\) & \(50\,\mathrm{k}\) & 38.7 & \(7.7 \times 10^{-4}\) & 0.012 & -- & budget (\(n=3\)) \\
+  NS & \(5 \times 10^{4}\) & \(44\,\mathrm{k}\) & 5.6 & \(1.3 \times 10^{-4}\) & 0.072 & \(-511.97 \pm 0.87\) & budget (\(n=3\)) \\
+  IS & \(5 \times 10^{4}\) & \(50\,\mathrm{k}\) & 4.0 & \(8.1 \times 10^{-5}\) & 0.084 & \(-510.92 \pm 0.59\) & budget (\(n=3\)) \\
+  MoleWhacker & \(5 \times 10^{5}\) & \(115\,\mathrm{k}\) & 1958 & \(1.7 \times 10^{-2}\) & 0.008 & \(-511.54 \pm 0.03\) & \(T_{\max}\) (\(n=3\)) \\
+  MH & \(5 \times 10^{5}\) & \(500\,\mathrm{k}\) & 403 & \(8.1 \times 10^{-4}\) & 0.004 & -- & budget (\(n=3\)) \\
+  NUTS & \(5 \times 10^{5}\) & \(450\,\mathrm{k}\) & 49.0 & \(1.1 \times 10^{-4}\) & 0.011 & -- & budget (\(n=2\)) \\
+  NS & \(5 \times 10^{5}\) & \(343\,\mathrm{k}\) & 75.5 & \(2.2 \times 10^{-4}\) & 0.022 & \(-509.80 \pm 0.04\) & maxcall (\(n=2\)) \\
+  IS & \(5 \times 10^{5}\) & \(500\,\mathrm{k}\) & 25.9 & \(5.2 \times 10^{-5}\) & 0.023 & \(-511.40\) & budget \\
+  NS & \(4 \times 10^{6}\) & \(850\,\mathrm{k}\) & 18398 & \(2.2 \times 10^{-2}\) & 0.013 & \(-509.17\) & \(\Delta\ln\evidence\) \\
+  \bottomrule
+\end{tabular}

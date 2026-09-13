@@ -1,0 +1,23 @@
+# Per-cell sample files (0.75 GB in out/runs, 2.1 GB in out_ablation/runs):
+# archived with the thesis data (Zenodo), regenerable from the queues.
+out/runs/**/*.h5
+out_ablation/runs/**/*.h5
+# hold markers of runs that have not been approved yet
+out_ablation/runs/**/HOLD.txt
+
+# run logs and watcher output
+out/logs/
+out_ablation/*.out
+out_ablation/*.err
+out_ablation/*.done
+*.log
+*.log.err
+
+# Julia / Python / editor
+*.jl.cov
+*.jl.*.cov
+*.jl.mem
+.ipynb_checkpoints/
+__pycache__/
+.vscode/
+Thumbs.db

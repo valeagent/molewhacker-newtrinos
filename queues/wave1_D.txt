@@ -1,0 +1,10 @@
+# wave 1, queue D — gradient and nested samplers at the top budget, IS, then the
+# nested-sampling reference runs to evidence convergence (run with -t 2)
+nuts NO 5e5 11
+ns NO 5e5 11
+nuts IO 5e5 11
+ns IO 5e5 11
+is NO 5e5 11
+is IO 5e5 11
+nsref NO 4e6 11
+nsref IO 4e6 11

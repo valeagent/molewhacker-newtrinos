@@ -1,0 +1,5 @@
+# wave 1, queue B — MoleWhacker at the top budget, inverted ordering (run with -t 4)
+mw IO 5e5 11
+mw IO 5e5 23
+mw IO 5e5 41
+mh IO 5e5 11

@@ -1,0 +1,7 @@
+# wave 2 — remaining top-budget replicates (start after wave 1 finished)
+nuts NO 5e5 23
+ns NO 5e5 23
+nuts IO 5e5 23
+ns IO 5e5 23
+mh NO 5e5 41
+mh IO 5e5 41
