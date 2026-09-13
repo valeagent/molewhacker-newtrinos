@@ -1,0 +1,5 @@
+# Extension "Towards a global fit", lane 2, part 2: MoleWhacker with the
+# iteration cap lifted on the d = 24 target (budget is the only stopping rule),
+# the counterpart of the T_max ablation of the three-experiment fit.
+#   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_NO_uncapped.txt --out out_extension_tmax --tmax 100000
+mw NO 5e5 11 dayabay,kamland,minos,deepcore

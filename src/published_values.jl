@@ -64,6 +64,17 @@ const NUFIT = (
     dm32_IO = PubValue(-2.484e-3, 0.020e-3),
 )
 
+# --- IceCube DeepCore, 2011–2019 sample ("9 y verification sample") ----------
+# R. Abbasi et al. (IceCube), PRD 108, 012014 (2023), arXiv:2304.12236
+# (abstract: sin²θ₂₃ = 0.51 ± 0.05, Δm²₃₂ = 2.41 ± 0.07 e-3 eV², normal ordering).
+# Data release: IceCube Collaboration, Harvard Dataverse, doi:10.7910/DVN/B4RITM
+# (2025); the Newtrinos deepcore module is built on it (normal ordering only).
+const DEEPCORE = (
+    ref = "Abbasi et al. (IceCube), PRD 108, 012014 (2023)",
+    sin2_theta23_NO = PubValue(0.51, 0.05),
+    dm32_NO = PubValue(2.41e-3, 0.07e-3),
+)
+
 # --- conversions to the Newtrinos parameterisation --------------------------
 theta_from_sin2(s2) = asin(sqrt(s2))
 theta_from_sin2_2(s22) = 0.5 * asin(sqrt(s22))
@@ -90,7 +101,7 @@ dm31_from_dm32(pv::PubValue) = PubValue(pv.value + DM21_NUFIT, pv.err_lo, pv.err
 
 Reference values per Newtrinos parameter for overlay on our marginals.
 """
-function published_bands(ordering::Symbol)
+function published_bands(ordering::Symbol; deepcore::Bool = false)
     b = Dict{Symbol,Vector{Tuple{String,PubValue}}}()
     b[:θ₁₃] = [("Daya Bay", convert_pub(DAYABAY.sin2_2theta13, theta_from_sin2_2)),
                ("NuFIT 6.0", convert_pub(ordering === :NO ? NUFIT.sin2_theta13_NO : NUFIT.sin2_theta13_IO, theta_from_sin2))]
@@ -107,6 +118,12 @@ function published_bands(ordering::Symbol)
         b[:Δm²₃₁] = [("Daya Bay", dm31_from_dm32(DAYABAY.dm32_IO)),
                      ("MINOS+", dm31_from_dm32(MINOS.dm32_IO)),
                      ("NuFIT 6.0", dm31_from_dm32(NUFIT.dm32_IO))]
+    end
+    # IceCube DeepCore (normal ordering only); opt-in so that the three-experiment
+    # figures of the chapter keep their original overlays
+    if deepcore && ordering === :NO
+        insert!(b[:θ₂₃], 2, ("IceCube", convert_pub(DEEPCORE.sin2_theta23_NO, theta_from_sin2)))
+        insert!(b[:Δm²₃₁], 3, ("IceCube", dm31_from_dm32(DEEPCORE.dm32_NO)))
     end
     return b
 end

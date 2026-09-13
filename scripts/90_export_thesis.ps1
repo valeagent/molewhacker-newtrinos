@@ -35,7 +35,15 @@ $map = @(
     @{ src = "nu_subsets_NO.pdf";   dst = "nu__subsets__dall__B5e4__mw__no.pdf" },
     @{ src = "nu_subsets_IO.pdf";   dst = "nu__subsets__dall__B5e4__mw__io.pdf" },
     @{ src = "nu_ordering_mechanism.pdf"; dst = "nu__mechanism__d8__B5e4__mw__all.pdf" },
-    @{ src = "nu_tmax.pdf";         dst = "nu__tmax__d11__B5e5__mw.pdf" }
+    @{ src = "nu_tmax.pdf";         dst = "nu__tmax__d11__B5e5__mw.pdf" },
+    # extension "Towards a global fit" (82_extension_plots.jl); the runs land 15 Sep,
+    # so these are missing (warning only) until then
+    @{ src = "nu_ext_plane.pdf";        dst = "nu__extplane__d24__B5e5__mw__no.pdf" },
+    @{ src = "nu_ext_marginals_NO.pdf"; dst = "nu__extmarginals__d24__B5e5__all__no.pdf" },
+    @{ src = "nu_ext_nuisance_NO.pdf";  dst = "nu__extnuisance__d24__B5e5__mw-mh__no.pdf" },
+    @{ src = "nu_ext_agreement.pdf";    dst = "nu__extagreement__d24__B5e5__mw-mh__no.pdf" },
+    @{ src = "nu_ext_iter_NO.pdf";      dst = "nu__extiter__d24__B5e5__mw__no.pdf" },
+    @{ src = "nu_ext_tmax.pdf";         dst = "nu__exttmax__d24__B5e5__mw__no.pdf" }
 )
 
 $figdir = Join-Path $Thesis "figures"

@@ -2,8 +2,13 @@
 # archived with the thesis data (Zenodo), regenerable from the queues.
 out/runs/**/*.h5
 out_ablation/runs/**/*.h5
+out_extension/runs/**/*.h5
+out_extension_tmax/runs/**/*.h5
 # hold markers of runs that have not been approved yet
 out_ablation/runs/**/HOLD.txt
+# chain progress markers
+out_extension/*.progress
+out_extension/*.done
 
 # run logs and watcher output
 out/logs/

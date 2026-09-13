@@ -1,0 +1,6 @@
+# Extension "Towards a global fit", lane 2, part 1: two more MoleWhacker seeds
+# of the four-experiment fit (protocol T_max = 20), so that the d = 24 result
+# rests on three seeds like every protocol cell of the chapter.
+#   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_NO_seeds.txt --out out_extension
+mw NO 5e5 23 dayabay,kamland,minos,deepcore
+mw NO 5e5 41 dayabay,kamland,minos,deepcore

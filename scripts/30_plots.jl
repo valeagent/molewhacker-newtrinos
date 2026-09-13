@@ -44,8 +44,8 @@ const LBL = Dict{Symbol,LaTeXString}(
     :nc_norm => L"n_{\mathrm{NC}}", :nutau_cc_norm => L"n_{\nu_\tau\,\mathrm{CC}}")
 const SCALE = Dict{Symbol,Float64}(:Δm²₂₁ => 1e5, :Δm²₃₁ => 1e3)   # display scaling
 scale_of(nm) = get(SCALE, nm, 1.0)
-const PUB_COLORS = Dict("Daya Bay" => :black, "KamLAND" => :black, "MINOS+" => :black, "NuFIT 6.0" => :gray40)
-const PUB_MARK = Dict("Daya Bay" => :diamond, "KamLAND" => :rect, "MINOS+" => :utriangle, "NuFIT 6.0" => :circle)
+const PUB_COLORS = Dict("Daya Bay" => :black, "KamLAND" => :black, "MINOS+" => :black, "IceCube" => :black, "NuFIT 6.0" => :gray40)
+const PUB_MARK = Dict("Daya Bay" => :diamond, "KamLAND" => :rect, "MINOS+" => :utriangle, "IceCube" => :hexagon, "NuFIT 6.0" => :circle)
 
 # Chapter palette. Identical to the thesis palette (Okabe–Ito) for MoleWhacker,
 # NUTS, NS and IS. MH is the *reference* sampler of this chapter (its pooled
@@ -615,4 +615,7 @@ function main()
     println("PLOTS-DONE")
 end
 
-main()
+# 82_extension_plots.jl includes this file for its infrastructure; run main() only as a script
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

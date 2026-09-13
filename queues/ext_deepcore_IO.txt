@@ -1,8 +1,11 @@
-# Extension "Towards a global fit": Daya Bay + KamLAND + MINOS + IceCube DeepCore
-# (9 y verification sample), d = 24, matter effects on (see needs_matter in
-# src/neutrino_problem.jl). Own output tree, never mixed into out/runs:
-#   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_IO.txt --out out_extension
-# Expected wall time on the laptop (4 threads): MW ~4 h, MH ~14 h per cell.
-# NOT STARTED - each cell exceeds three hours and needs approval first (13 Sep 2026).
+# NOT RUN (13 Sep 2026). The DeepCore module of the pinned Newtrinos commit
+# evaluates the detector-response hypersurfaces of the IceCube data release on
+# a grid in Δm²₃₁ that covers 0.0015–0.0035 eV² only (positive values, i.e. the
+# normal ordering, for which the release was produced); an inverted-ordering
+# point raises BoundsError in apply_hypersurfaces (deepcore.jl:259), verified
+# with a B = 2000 MH smoke cell. The extension is therefore a normal-ordering
+# fit; the ordering comparison stays with the three-experiment fit. An IO fit
+# would need the hypersurfaces evaluated at |Δm²₃₁| (an approximation not part
+# of the release) and is left for a decision with Philipp.
 mw IO 5e5 11 dayabay,kamland,minos,deepcore
 mh IO 5e5 11 dayabay,kamland,minos,deepcore

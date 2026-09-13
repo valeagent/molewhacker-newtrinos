@@ -212,4 +212,7 @@ function main()
     println("TABLES-DONE")
 end
 
-main()
+# 83_extension_tables.jl includes this file for its formatting helpers; run main() only as a script
+if abspath(PROGRAM_FILE) == @__FILE__
+    main()
+end

@@ -2,7 +2,7 @@
 # (9 y verification sample), d = 24, matter effects on (see needs_matter in
 # src/neutrino_problem.jl). Own output tree, never mixed into out/runs:
 #   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_NO.txt --out out_extension
-# Expected wall time on the laptop (4 threads): MW ~4 h, MH ~14 h per cell.
-# NOT STARTED - each cell exceeds three hours and needs approval first (13 Sep 2026).
+# Expected wall time on the laptop (4 threads): MW ~4 h, MH ~17-22 h per cell.
+# Approved 13 Sep 2026 15:00 (lane 1 of out_extension/chain_extension.ps1).
 mw NO 5e5 11 dayabay,kamland,minos,deepcore
 mh NO 5e5 11 dayabay,kamland,minos,deepcore

@@ -13,10 +13,11 @@ $cells = @(
     @{ n = "T_max ablation  seed 23  IO"; d = "out_ablation\runs\nu_dakami_IO_mw_d11_B5e5_seed23" },
     @{ n = "T_max ablation  seed 41  NO"; d = "out_ablation\runs\nu_dakami_NO_mw_d11_B5e5_seed41" },
     @{ n = "T_max ablation  seed 41  IO"; d = "out_ablation\runs\nu_dakami_IO_mw_d11_B5e5_seed41" },
-    @{ n = "DeepCore ext.   MoleWhacker NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MH reference NO"; d = "out_extension\runs\nu_dakamide_NO_mh_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MoleWhacker IO"; d = "out_extension\runs\nu_dakamide_IO_mw_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MH reference IO"; d = "out_extension\runs\nu_dakamide_IO_mh_d24_B5e5_seed11" }
+    @{ n = "DeepCore ext.   MoleWhacker s11 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MH reference s11 NO"; d = "out_extension\runs\nu_dakamide_NO_mh_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MoleWhacker s23 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
+    @{ n = "DeepCore ext.   MoleWhacker s41 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" },
+    @{ n = "DeepCore ext.   MW cap lifted s11 NO"; d = "out_extension_tmax\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" }
 )
 
 function Fmt-Span([TimeSpan]$t) { if ($t.TotalHours -ge 1) { "{0:N1} h" -f $t.TotalHours } else { "{0:N0} min" -f $t.TotalMinutes } }
@@ -75,7 +76,8 @@ function Show-Status {
     elseif (Test-Path out_extension\chain_extension.progress) { Get-Content out_extension\chain_extension.progress | ForEach-Object { Write-Host "  extension chain: $_" } }
     else { Write-Host "  extension chain: waiting for the two seed-41 results, then starts the DeepCore lanes" }
     Write-Host ""
-    Write-Host "Expected: seed 23 ~18:00 Sun; seed 41 ~06:00 Mon; extension MoleWhacker ~10:00 Mon, MH lanes early Tue." -ForegroundColor DarkGray
+    Write-Host "Expected: seed 41 ~00:00-01:00 Mon; extension lanes start right after; MW cells ~4 h each, MH and the uncapped MW ~18-22 h -> both lanes end ~Tue 02:00." -ForegroundColor DarkGray
+    Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: out\logs\*.log.err  (flushed in chunks: gaps of 1-2 h are normal; 'busy' above is the reliable sign of life)" -ForegroundColor DarkGray
 }
 
