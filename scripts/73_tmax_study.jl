@@ -283,6 +283,7 @@ function fig_tmax()
                yscale = log10, title = "(b) efficiency vs. iteration", titlefont = :regular, titlesize = 8.5)
     standard_axis!(axb)
     ls = Dict(:NO => :solid, :IO => :dash)
+    proto_x = Float64[]; proto_y = Float64[]   # protocol end points, drawn last so the thick curves do not hide them
     for r in runs
         il = r.iterlog
         if r.kind === :long
@@ -290,10 +291,11 @@ function fig_tmax()
             lines!(axb, il.iter, il.ess ./ il.cum_cost; color = NU_COLOR[:mw], linewidth = 1.8, linestyle = ls[r.ordering])
         else
             lines!(axa, il.cum_cost, il.ess; color = (NU_COLOR[:mw], 0.45), linewidth = 0.9, linestyle = ls[r.ordering])
-            scatter!(axa, [il.cum_cost[end]], [il.ess[end]]; color = NU_COLOR[:mw], marker = NU_MARKER[:mw],
-                     markersize = 8, strokecolor = :black, strokewidth = 0.4)
+            push!(proto_x, il.cum_cost[end]); push!(proto_y, il.ess[end])
         end
     end
+    isempty(proto_x) || scatter!(axa, proto_x, proto_y; color = NU_COLOR[:mw], marker = NU_MARKER[:mw],
+                                 markersize = 8, strokecolor = :black, strokewidth = 0.4)
     # other samplers' protocol cells at the top budget (ESS at the evaluations they consumed)
     for alg in (:mh, :nuts, :ns, :is)
         sub = cells[(cells.alg .== String(alg)) .& (cells.B .== BTOP), :]
