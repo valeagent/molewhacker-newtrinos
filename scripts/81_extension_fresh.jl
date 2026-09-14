@@ -3,10 +3,14 @@
 # the extension "Towards a global fit" (d = 24, normal ordering).
 # =============================================================================
 #
-#   julia --project=. -t 4 scripts/81_extension_fresh.jl [--ext out_extension]
-#         [--ext-tmax out_extension_tmax] [--N 30000]
+#   julia --project=. -t 4 scripts/81_extension_fresh.jl [--ext out_extension_nseed8]
+#         [--ext-proto out_extension] [--N 30000]
 #
-# For every finished MoleWhacker cell in <ext>/runs and <ext-tmax>/runs, draw N
+# Roots (final design, 14 Sep 2026): <ext> holds the MoleWhacker cells with the
+# adapted seed count n_seed = 8 (three seeds; kind "nseed8"); <ext-proto> holds
+# the single cell in the protocol configuration as specified, 30 seeds (kind
+# "protocol30"), which documents the initialisation-dominated budget.
+# For every finished MoleWhacker cell in <ext>/runs and <ext-proto>/runs, draw N
 # independent samples from the stored final mixture (in BAT's PriorToNormal
 # space, as 72_mw_mixture_check.jl / 73_tmax_study.jl), evaluate the exact
 # posterior, and report the importance-sampling evidence, its standard error,
@@ -25,8 +29,8 @@ using BAT: bat_transform, PriorToNormal
 using DensityInterface: logdensityof
 include(joinpath(@__DIR__, "..", "src", "neutrino_problem.jl"))
 
-const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
-const EXT_TMAX = let i = findfirst(==("--ext-tmax"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_tmax") : ARGS[i+1] end
+const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_nseed8") : ARGS[i+1] end
+const EXT_PROTO = let i = findfirst(==("--ext-proto"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
 const NFRESH = let i = findfirst(==("--N"), ARGS); i === nothing ? 30_000 : parse(Int, ARGS[i+1]) end
 const TABLES = joinpath(EXT, "tables"); mkpath(TABLES)
 
@@ -95,7 +99,7 @@ function fresh_check(dir, kind)
 end
 
 rows = NamedTuple[]
-for (root, kind) in ((EXT, "protocol"), (EXT_TMAX, "long"))
+for (root, kind) in ((EXT, "nseed8"), (EXT_PROTO, "protocol30"))
     runs = joinpath(root, "runs"); isdir(runs) || continue
     for name in sort(readdir(runs))
         (startswith(name, "nu_") && occursin("_mw_", name) && finished(joinpath(runs, name))) || continue

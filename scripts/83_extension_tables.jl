@@ -3,20 +3,22 @@
 # global fit" (Daya Bay + KamLAND + MINOS + IceCube DeepCore, d = 24, NO).
 # =============================================================================
 #
-#   julia --project=. scripts/83_extension_tables.jl [--ext out_extension]
-#         [--ext-tmax out_extension_tmax] [--B 5e5]
+#   julia --project=. scripts/83_extension_tables.jl [--ext out_extension_nseed8]
+#         [--ext-proto out_extension] [--B 5e5]
 #
 # Prerequisites: 20_aggregate.jl has been run on the campaign tree (out/) and,
-# with --tag nu_dakamide_, on <ext> and (if the uncapped cell exists) <ext-tmax>:
+# with --tag nu_dakamide_, on <ext> (n_seed = 8 MoleWhacker cells + a copy of the
+# MH reference cell) and on <ext-proto> (the 30-seed protocol cell + the MH cell):
+#   julia --project=. scripts/20_aggregate.jl --out out_extension_nseed8 --tag nu_dakamide_
 #   julia --project=. scripts/20_aggregate.jl --out out_extension --tag nu_dakamide_
-#   julia --project=. scripts/20_aggregate.jl --out out_extension_tmax --tag nu_dakamide_
 #
 # Writes to <ext>/tables/:
 #   tab_nu_ext_physics.tex    oscillation observables: three vs four experiments
 #                             (MoleWhacker pooled, MH reference), IceCube, NuFIT 6.0
-#   tab_nu_ext_samplers.tex   MoleWhacker (three seeds, T_max = 20), MH, and the
-#                             uncapped MoleWhacker at d = 24: cost, wall time,
-#                             N_eff, efficiency, agreement, ln Z
+#   tab_nu_ext_samplers.tex   MoleWhacker (n_seed = 8, three seeds, T_max = 20), MH,
+#                             and the MoleWhacker protocol cell (30 seeds) at
+#                             d = 24: cost, wall time, N_eff, efficiency,
+#                             agreement, ln Z, plus seed-phase cost and iterations
 #   ext_summary.csv           the numbers behind both tables plus the cube ->
 #                             physical evidence shift for the d = 24 prior box
 include(joinpath(@__DIR__, "40_tables.jl"))   # formatting helpers, published values; main() guarded
@@ -24,11 +26,11 @@ using Distributions
 include(joinpath(@__DIR__, "..", "harness", "experiments", "src", "ExperimentsBase.jl"))
 using .ExperimentsBase
 
-const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
-const EXT_TMAX = let i = findfirst(==("--ext-tmax"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_tmax") : ARGS[i+1] end
+const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_nseed8") : ARGS[i+1] end
+const EXT_PROTO = let i = findfirst(==("--ext-proto"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
 const T3 = TABLES                       # three-experiment tables (out/tables)
 const T4 = joinpath(EXT, "tables")      # four-experiment tables
-const TT = joinpath(EXT_TMAX, "tables") # uncapped MoleWhacker (optional)
+const TP = joinpath(EXT_PROTO, "tables") # protocol cell (30 seeds) + original MH cell
 
 readcsv(dir, name) = let p = joinpath(dir, name); isfile(p) ? CSV.read(p, DataFrame) : nothing end
 
@@ -92,13 +94,33 @@ end
 fmt_h(s) = @sprintf("%.1f", s / 3600)
 fmt_lz(v) = isempty(v) || all(isnan.(v)) ? "--" :
             (length(v) > 1 ? @sprintf("\\(%.2f \\pm %.2f\\)", mean(v), std(v)) : @sprintf("\\(%.2f\\)", v[1]))
-function table_ext_samplers(cells4, agree4, cellsT, fresh)
+# Seed phase and loop of the MoleWhacker cells of one output root, from the
+# metadata: the number of seeds actually fitted, the cost consumed up to and
+# including iteration 0 (seed phase + the first 2000 importance draws), the
+# number of whacking iterations, and the stop reason.
+function mw_seed_phase(runs)
+    out = DataFrame(seed = Int[], n_seed = Int[], cost_iter0 = Float64[], iterations = Int[], stop = String[])
+    isdir(runs) || return out
+    for name in sort(readdir(runs))
+        (startswith(name, "nu_dakamide_NO_mw_") && isfile(joinpath(runs, name, "metadata.json"))) || continue
+        (isfile(joinpath(runs, name, "result.h5")) && filesize(joinpath(runs, name, "result.h5")) > 0) || continue
+        meta = read_metadata_json(joinpath(runs, name))
+        tun = meta["algorithm"]["tuning"]
+        il = get(tun, "iter_log", nothing)
+        c0 = (il === nothing || isempty(il)) ? NaN : Float64(il[1]["cum_cost"])
+        nit = (il === nothing || isempty(il)) ? 0 : Int(il[end]["iter"])
+        push!(out, (Int(meta["seed"]), Int(get(tun, "n_seed_used", 0)), c0, nit, string(get(tun, "stop_reason", ""))))
+    end
+    return out
+end
+
+function table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)
     io_ = IOBuffer()
-    println(io_, "\\begin{tabular}{@{}lrrrrrrrrrl@{}}")
+    println(io_, "\\begin{tabular}{@{}lrrrrrrrrrrl@{}}")
     println(io_, "  \\toprule")
-    println(io_, "  Sampler & seeds & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) (cloud) & \\(\\ln\\evidence\\) (fresh) & fresh eff. & stop \\\\")
+    println(io_, "  Sampler & seeds & \\(n_{\\mathrm{seed}}\\) & seed phase & \\(T\\) & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) (cloud) & fresh: \\(\\ln\\evidence\\), eff. \\\\")
     println(io_, "  \\midrule")
-    function row(label, s, a, fr)
+    function row(label, s, a, fr, sp)
         nrow(s) == 0 && return
         w1 = (a === nothing || nrow(a) == 0) ? "--" : @sprintf("%.3f", median(a.W1_avg))
         lz = fmt_lz(s.logZ)
@@ -106,16 +128,19 @@ function table_ext_samplers(cells4, agree4, cellsT, fresh)
         fe = (fr === nothing || nrow(fr) == 0) ? "--" : @sprintf("%.2f", median(fr.fresh_eff))
         ne = median(s.neff)
         nstr = ne >= 100 ? @sprintf("%.0f", ne) : @sprintf("%.1f", ne)
-        println(io_, "  ", label, " & ", nrow(s), " & \\(", fmt_cost(median(s.Nlike_used)), "\\) & ", fmt_h(median(s.wall_time_s)), " & ", nstr,
+        ns = (sp === nothing || nrow(sp) == 0) ? "--" : string(maximum(sp.n_seed))
+        c0 = (sp === nothing || nrow(sp) == 0 || all(isnan.(sp.cost_iter0))) ? "--" : "\\(" * fmt_cost(median(filter(!isnan, sp.cost_iter0))) * "\\)"
+        it = (sp === nothing || nrow(sp) == 0) ? "--" : (length(unique(sp.iterations)) == 1 ? string(sp.iterations[1]) : "$(minimum(sp.iterations))--$(maximum(sp.iterations))")
+        println(io_, "  ", label, " & ", nrow(s), " & ", ns, " & ", c0, " & ", it, " & \\(", fmt_cost(median(s.Nlike_used)), "\\) & ", fmt_h(median(s.wall_time_s)), " & ", nstr,
                 " & \\(", replace(sci(median(s.eta); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}"), "\\) & ", w1, " & ", lz,
-                " & ", fz, " & ", fe, " & ", join(stop_tex.(unique(s.stop)), "/"), " \\\\")
+                " & ", fz, (fz == "--" ? "" : ", " * fe), " \\\\")
     end
     sel(cells, alg) = cells === nothing ? DataFrame() : cells[(cells.ordering .== "NO") .& (cells.alg .== alg) .& (cells.B .== BTOP), :]
     sela(agree, alg) = agree === nothing ? nothing : agree[(agree.ordering .== "NO") .& (agree.alg .== alg) .& (agree.B .== BTOP), :]
     self(kind) = fresh === nothing ? nothing : fresh[fresh.kind .== kind, :]
-    row("\\mw{} (\\(\\Tmax = 20\\))", sel(cells4, "mw"), sela(agree4, "mw"), self("protocol"))
-    row("\\mh{} (reference)", sel(cells4, "mh"), sela(agree4, "mh"), nothing)
-    row("\\mw{}, cap lifted", sel(cellsT, "mw"), nothing, self("long"))
+    row("\\mw{}, \\(n_{\\mathrm{seed}} = 8\\), \\(\\Tmax = 20\\)", sel(cells4, "mw"), sela(agree4, "mw"), self("nseed8"), seeds4)
+    row("\\mw{}, protocol seed count", sel(cellsP, "mw"), sela(readcsv(TP, "agreement.csv"), "mw"), self("protocol30"), seedsP)
+    row("\\mh{} (reference)", sel(cells4, "mh"), sela(agree4, "mh"), nothing, nothing)
     println(io_, "  \\bottomrule")
     println(io_, "\\end{tabular}")
     return String(take!(io_))
@@ -125,11 +150,12 @@ function main_ext()
     mkpath(T4)
     phys3, phys4 = readcsv(T3, "physics.csv"), readcsv(T4, "physics.csv")
     cells4, agree4 = readcsv(T4, "cells.csv"), readcsv(T4, "agreement.csv")
-    cellsT = readcsv(TT, "cells.csv")
+    cellsP = readcsv(TP, "cells.csv")          # protocol cell (30 seeds), aggregated in its own root
     fresh = readcsv(T4, "fresh.csv")           # 81_extension_fresh.jl (optional)
+    seeds4, seedsP = mw_seed_phase(joinpath(EXT, "runs")), mw_seed_phase(joinpath(EXT_PROTO, "runs"))
     cells4 === nothing && error("no four-experiment tables in $(T4); run 20_aggregate.jl --out $(EXT) --tag nu_dakamide_ first")
     for (name, tab) in (("tab_nu_ext_physics.tex", table_ext_physics(phys3, phys4)),
-                        ("tab_nu_ext_samplers.tex", table_ext_samplers(cells4, agree4, cellsT, fresh)))
+                        ("tab_nu_ext_samplers.tex", table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)))
         tab === nothing && (@warn "table skipped" name; continue)
         write(joinpath(T4, name), tab)
         println("--- ", name, " ---"); print(tab)
@@ -141,6 +167,18 @@ function main_ext()
         push!(s, ("logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "pooled-cloud estimate"))
         push!(s, ("logZ_phys_$(r.alg)_seed$(r.seed)", r.logZ + shift, "physical units"))
         push!(s, ("neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
+    end
+    for (tag, sp) in (("nseed8", seeds4), ("protocol30", seedsP)), r in eachrow(sp)
+        push!(s, ("$(tag)_n_seed_seed$(r.seed)", r.n_seed, "seeds fitted (n_seed_used)"))
+        push!(s, ("$(tag)_cost_iter0_seed$(r.seed)", r.cost_iter0, "cost after iteration 0 = seed phase + 2000 IS draws"))
+        push!(s, ("$(tag)_cost_per_seed_seed$(r.seed)", (r.cost_iter0 - 2000) / max(r.n_seed, 1), "(cost_iter0 - 2000) / n_seed"))
+        push!(s, ("$(tag)_iterations_seed$(r.seed)", r.iterations, "whacking iterations; stop = $(r.stop)"))
+    end
+    if cellsP !== nothing
+        for r in eachrow(cellsP[cellsP.B .== BTOP, :])
+            push!(s, ("protocol30_logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "pooled-cloud estimate, protocol cell"))
+            push!(s, ("protocol30_neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("protocol30_wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
+        end
     end
     CSV.write(joinpath(T4, "ext_summary.csv"), s)
     println(s)

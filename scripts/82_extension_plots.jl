@@ -3,12 +3,17 @@
 # Daya Bay + KamLAND + MINOS + IceCube DeepCore, d = 24, normal ordering.
 # =============================================================================
 #
-#   julia --project=. scripts/82_extension_plots.jl [--ext out_extension]
-#         [--ext-tmax out_extension_tmax] [--B 5e5]
+#   julia --project=. scripts/82_extension_plots.jl [--ext out_extension_nseed8]
+#         [--ext-proto out_extension] [--B 5e5]
 #
-# Reads the four-experiment cells from <ext>/runs (tag nu_dakamide_) and the
-# three-experiment protocol cells from out/runs (tag nu_dakami_; the chapter's
-# campaign). Figures (PDF + PNG in out/figs):
+# Roots (final design, 14 Sep 2026): <ext>/runs holds the four-experiment cells
+# that carry the results, the MoleWhacker cells with the adapted seed count
+# n_seed = 8 (three seeds) and a copy of the MH reference cell (placed there by
+# 85_extension_analysis.ps1 so that 20_aggregate.jl finds its reference);
+# <ext-proto>/runs holds the single MoleWhacker cell in the protocol
+# configuration as specified (30 seeds; initialisation-dominated budget) and
+# the original MH cell. Three-experiment protocol cells come from out/runs (tag
+# nu_dakami_; the chapter's campaign). Figures (PDF + PNG in out/figs):
 #   nu_ext_plane          (sin²θ₂₃, Δm²₃₂): four-experiment MoleWhacker regions
 #                         enclosing 68.3 % and 90 % of the posterior mass, MH
 #                         (reference) 90 % contour, three-experiment 90 % contour,
@@ -19,12 +24,13 @@
 #   nu_ext_agreement      per-parameter W1(MoleWhacker, MH) in units of the MH
 #                         posterior standard deviation, all 24 parameters
 #   nu_ext_iter_NO        MoleWhacker iteration log at d = 24 (thesis family)
-#   nu_ext_tmax           capped vs uncapped MoleWhacker at d = 24 (if the
-#                         uncapped cell exists): N_eff against cost
+#   nu_ext_seeds          N_eff against consumed cost at d = 24: the n_seed = 8
+#                         cells (iteration logs), the protocol cell with 30
+#                         seeds, and the MH reference
 include(joinpath(@__DIR__, "30_plots.jl"))   # infrastructure; its main() is guarded
 
-const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
-const EXT_TMAX = let i = findfirst(==("--ext-tmax"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_tmax") : ARGS[i+1] end
+const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_nseed8") : ARGS[i+1] end
+const EXT_PROTO = let i = findfirst(==("--ext-proto"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
 const DC_CONTOUR = joinpath(@__DIR__, "..", "data", "icecube_deepcore_9y_sin2theta23_dm32_90pc.csv")
 const EXT_TITLE = "Daya Bay + KamLAND + MINOS + IceCube DeepCore"
 const C3 = :gray45          # three-experiment fit in the comparison figures
@@ -368,12 +374,15 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
 end
 
 # -----------------------------------------------------------------------------
-# Capped vs uncapped MoleWhacker on the d = 24 target: N_eff against consumed cost.
-function fig_ext_tmax(cells4; ordering = :NO, B = BTOP)
-    long = mw_iterlogs(joinpath(EXT_TMAX, "runs"), ordering, B)
-    isempty(long) && return nothing
-    proto_logs = mw_iterlogs(joinpath(EXT, "runs"), ordering, B)
-    proto = [c for c in cells4 if c.ordering === ordering && c.alg === :mw && c.B == B]
+# Seed count on the d = 24 target: N_eff against consumed cost. The n_seed = 8
+# cells are drawn as iteration-log curves (iteration 0 = the seed mixture, then
+# one point per whacking iteration; end markers on top), the protocol cell with
+# 30 seeds as a single hollow marker (its log has one entry when the budget is
+# exhausted before the first iteration), the MH reference as its marker.
+function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
+    adapted = mw_iterlogs(joinpath(EXT, "runs"), ordering, B)
+    proto_logs = mw_iterlogs(joinpath(EXT_PROTO, "runs"), ordering, B)
+    isempty(adapted) && isempty(proto_logs) && return nothing
     mh = [c for c in cells4 if c.ordering === ordering && c.alg === :mh && c.B == B]
     set_pub_theme!(class = :wide)
     W, _ = figure_size(:wide, :viz_marginal)
@@ -381,22 +390,35 @@ function fig_ext_tmax(cells4; ordering = :NO, B = BTOP)
     ax = Axis(fig[1, 1]; xlabel = L"N_L\;\text{consumed (likelihood equivalents)}", ylabel = L"N_{\mathrm{eff}}",
               xscale = log10, yscale = log10)
     standard_axis!(ax)
-    leg_el = Any[]; leg_lb = String[]
-    for (seed, df, meta) in long
-        lines!(ax, df.cum_cost, df.ess; color = NU_COLOR[:mw], linewidth = 1.8)
+    leg_el = Any[]; leg_lb = Any[]
+    ends_x = Float64[]; ends_y = Float64[]
+    for (seed, df, meta) in adapted
+        lines!(ax, df.cum_cost, df.ess; color = NU_COLOR[:mw], linewidth = 1.6)
+        scatter!(ax, df.cum_cost[1:1], df.ess[1:1]; color = :white, strokecolor = NU_COLOR[:mw], strokewidth = 1.0, markersize = 5)
+        push!(ends_x, df.cum_cost[end]); push!(ends_y, df.ess[end])
     end
-    push!(leg_el, LineElement(color = NU_COLOR[:mw], linewidth = 1.8)); push!(leg_lb, "MoleWhacker, cap lifted")
+    if !isempty(adapted)
+        push!(leg_el, [LineElement(color = NU_COLOR[:mw], linewidth = 1.6),
+                       MarkerElement(color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8, strokecolor = :black, strokewidth = 0.4)])
+        push!(leg_lb, L"MoleWhacker, $n_{\mathrm{seed}} = 8$, $T_{\max} = 20$ (three seeds)")
+        push!(leg_el, MarkerElement(color = :white, marker = :circle, markersize = 5, strokecolor = NU_COLOR[:mw], strokewidth = 1.0))
+        push!(leg_lb, "iteration 0 (seed mixture)")
+    end
     for (seed, df, meta) in proto_logs
-        lines!(ax, df.cum_cost, df.ess; color = (NU_COLOR[:mw], 0.45), linewidth = 0.9)
+        scatter!(ax, df.cum_cost[end:end], df.ess[end:end]; color = :white, marker = NU_MARKER[:mw], markersize = 9,
+                 strokecolor = NU_COLOR[:mw], strokewidth = 1.4)
     end
-    isempty(proto) || scatter!(ax, [c.mr.Nlike_used for c in proto], [neff(c.mr) for c in proto]; color = NU_COLOR[:mw],
-                               marker = NU_MARKER[:mw], markersize = 8, strokecolor = :black, strokewidth = 0.4)
-    push!(leg_el, MarkerElement(color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8, strokecolor = :black, strokewidth = 0.4))
-    push!(leg_lb, "MoleWhacker, Tₘₐₓ = 20 (protocol)")
+    if !isempty(proto_logs)
+        push!(leg_el, MarkerElement(color = :white, marker = NU_MARKER[:mw], markersize = 9, strokecolor = NU_COLOR[:mw], strokewidth = 1.4))
+        nit = maximum(nrow(df) - 1 for (_, df, _) in proto_logs)
+        push!(leg_lb, LaTeXString("MoleWhacker, protocol seed count (30), \$T = $(nit)\$ iteration$(nit == 1 ? "" : "s")"))
+    end
     if !isempty(mh)
         scatter!(ax, [c.mr.Nlike_used for c in mh], [neff(c.mr) for c in mh]; color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5)
         push!(leg_el, MarkerElement(color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5)); push!(leg_lb, "MH (reference)")
     end
+    isempty(ends_x) || scatter!(ax, ends_x, ends_y; color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8,
+                                strokecolor = :black, strokewidth = 0.4)
     vlines!(ax, [B]; color = :gray50, linewidth = 0.7, linestyle = :dot)
     Legend(fig[1, 2], leg_el, leg_lb; framevisible = false, labelsize = 7, patchsize = (12, 8), rowgap = 3, tellheight = false)
     Label(fig[0, 1:2], "$(EXT_TITLE), $(ord_word(ordering)), d = 24"; fontsize = 8.5, font = :regular, tellwidth = false)
@@ -425,7 +447,7 @@ function main_ext()
             @warn "iteration-log figure skipped" exception = err
         end
     end
-    f = fig_ext_tmax(cells4); f === nothing || save_pdf(f, "nu_ext_tmax"; dir = FIGS)
+    f = fig_ext_seeds(cells4); f === nothing || save_pdf(f, "nu_ext_seeds"; dir = FIGS)
     println("EXT-PLOTS-DONE")
 end
 

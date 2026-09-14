@@ -1,4 +1,4 @@
-﻿# =============================================================================
+# =============================================================================
 # 11_run_queue.jl — run a list of cells sequentially in one Julia process
 # (so the ~1 min harness load is paid once). Start several of these in
 # parallel with disjoint queues to use the machine.
