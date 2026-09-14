@@ -13,10 +13,11 @@ $cells = @(
     @{ n = "T_max ablation  seed 23  IO"; d = "out_ablation\runs\nu_dakami_IO_mw_d11_B5e5_seed23" },
     @{ n = "T_max ablation  seed 41  NO"; d = "out_ablation\runs\nu_dakami_NO_mw_d11_B5e5_seed41" },
     @{ n = "T_max ablation  seed 41  IO"; d = "out_ablation\runs\nu_dakami_IO_mw_d11_B5e5_seed41" },
-    @{ n = "DeepCore ext.   MoleWhacker s11 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MH reference s11 NO"; d = "out_extension\runs\nu_dakamide_NO_mh_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MoleWhacker s23 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
-    @{ n = "DeepCore ext.   MoleWhacker s41 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
+    @{ n = "DeepCore ext.   MW protocol (30 seeds) s11"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MH reference s11";           d = "out_extension\runs\nu_dakamide_NO_mh_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MW n_seed=8 s11";            d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MW n_seed=8 s23";            d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
+    @{ n = "DeepCore ext.   MW n_seed=8 s41 (lane 1 after protocol cell)"; d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
 )
 
 function Fmt-Span([TimeSpan]$t) { if ($t.TotalHours -ge 1) { "{0:N1} h" -f $t.TotalHours } else { "{0:N0} min" -f $t.TotalMinutes } }
@@ -46,12 +47,12 @@ function Show-Status {
     foreach ($c in $cells) {
         $r = Join-Path $c.d "result.h5"
         if ((Test-Path $r) -and (Get-Item $r).Length -gt 0) {
-            Write-Host ("  {0,-34} DONE     finished {1}" -f $c.n, (Get-Item $r).LastWriteTime.ToString("dd.MM HH:mm")) -ForegroundColor Green
+            Write-Host ("  {0,-52} DONE     finished {1}" -f $c.n, (Get-Item $r).LastWriteTime.ToString("dd.MM HH:mm")) -ForegroundColor Green
         } elseif (Test-Path $c.d) {
             $t0 = (Get-Item $c.d).CreationTime
-            Write-Host ("  {0,-34} RUNNING  since {1} ({2})" -f $c.n, $t0.ToString("dd.MM HH:mm"), (Fmt-Span ($now - $t0))) -ForegroundColor Yellow
+            Write-Host ("  {0,-52} RUNNING  since {1} ({2})" -f $c.n, $t0.ToString("dd.MM HH:mm"), (Fmt-Span ($now - $t0))) -ForegroundColor Yellow
         } else {
-            Write-Host ("  {0,-34} waiting" -f $c.n) -ForegroundColor DarkGray
+            Write-Host ("  {0,-52} waiting" -f $c.n) -ForegroundColor DarkGray
         }
     }
     Write-Host ""
@@ -75,11 +76,14 @@ function Show-Status {
     elseif (Test-Path out_extension\chain_extension.progress) { Get-Content out_extension\chain_extension.progress -Tail 6 | ForEach-Object { Write-Host "  extension chain: $_" } }
     else { Write-Host "  extension chain: waiting for the two seed-41 results, then starts the DeepCore lanes" }
     Write-Host ""
-    Write-Host "Expected (revised Mon 21:30 after measuring the d = 24 costs: likelihood 0.22 s, gradient 6 s, Hessian 290 s, i.e. 16x / 38x / 165x the" -ForegroundColor DarkGray
-    Write-Host "three-experiment fit; the MoleWhacker seed phase - 30 L-BFGS fits at BAT's 1e-8 tolerance - dominates, one capped cell = ~30-35 h):" -ForegroundColor DarkGray
-    Write-Host "lane 1 = MW s11 (since 02:25) -> ~Tue 08:00-16:00, then exits (its MH cell is skipped via a placeholder); MH s11 runs as a THIRD" -ForegroundColor DarkGray
-    Write-Host "process since Mon 21:24 (-t 1, 5e5 x 0.22 s = ~31 h) -> ~Wed 04:00-10:00; lane 2 = MW s23 (since 08:33) -> ~Tue 14:00-22:00, then" -ForegroundColor DarkGray
-    Write-Host "MW s41 -> ~Thu 00:00-08:00. The uncapped d = 24 run is CANCELLED (queue emptied). Analysis + figures follow as cells land." -ForegroundColor DarkGray
+    Write-Host "Design (final, Mon 22:00): d = 24 costs are likelihood 0.22 s, gradient 6 s, Hessian 290 s; one L-BFGS seed runs to BAT's 1000-iteration" -ForegroundColor DarkGray
+    Write-Host "limit (~30 000 units), so the protocol's 30 seeds (~9e5 units) exhaust the 5e5 budget before the first whacking iteration. Therefore:" -ForegroundColor DarkGray
+    Write-Host "  lane 1  = MW protocol cell, 30 seeds, s11 (since 02:25) -> ~Tue 08:00-16:00, kept as the 'protocol as specified' data point;" -ForegroundColor DarkGray
+    Write-Host "  MH s11  = reference, third process since Mon 21:24 (-t 1, 5e5 x 0.22 s = ~31 h) -> ~Wed 04:00-10:00, unchanged;" -ForegroundColor DarkGray
+    Write-Host "  lane 2  = MW n_seed = 8 (everything else protocol), s11 then s23 (since 22:00, ~11-13 h each) -> ~Tue 09:00-11:00 and ~Tue 20:00-Wed 00:00;" -ForegroundColor DarkGray
+    Write-Host "  waiter  = MW n_seed = 8 s41 in lane 1 as soon as the protocol cell exits -> ~Wed 00:00-05:00." -ForegroundColor DarkGray
+    Write-Host "The 30-seed MW s23 was STOPPED at 21:59 (partial cell moved to out_extension\_stopped_30seed_s23_*); the uncapped d = 24 run is CANCELLED." -ForegroundColor DarkGray
+    Write-Host "All extension cells expected by Wed 16.09 morning. Analysis + figures follow as cells land." -ForegroundColor DarkGray
     Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: the ext_deepcore_* logs stay EMPTY until a lane's julia process exits (PowerShell redirect buffers a few KB and these cells write" -ForegroundColor DarkGray

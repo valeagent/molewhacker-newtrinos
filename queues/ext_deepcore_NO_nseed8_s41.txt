@@ -1,0 +1,4 @@
+# Third seed of queues/ext_deepcore_NO_nseed8.txt, run in lane 1 after the
+# 30-seed MW s11 has exited (see out_extension/lane1_after_nseed8.ps1):
+#   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_NO_nseed8_s41.txt --out out_extension_nseed8 --nseed 8
+mw NO 5e5 41 dayabay,kamland,minos,deepcore

@@ -1,0 +1,15 @@
+# Extension "Towards a global fit": MoleWhacker on the four-experiment target
+# (d = 24, normal ordering) with the seed count adapted to the measured cost of
+# one seed (~30 000 counter units: L-BFGS runs to BAT's 1000-iteration limit on
+# the piecewise-linear DeepCore hypersurfaces, plus a d² = 576-unit Hessian)
+# instead of the 200 (1 + d) = 5 000 units of the protocol's planning rule,
+# which would put 30 seeds (~9e5 units) in front of a 5e5 budget. Eight seeds
+# (= n_parallel, one initial component per refinement slot) cost ~2.4e5 units
+# and leave ~2.6e5 for the refinement loop (~40 iterations at ~6 600 per
+# iteration, i.e. T_max = 20 is reachable). Everything else is the protocol
+# configuration. Own output root, never mixed into out_extension/runs:
+#   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_NO_nseed8.txt --out out_extension_nseed8 --nseed 8
+# Lane assignment (14 Sep 2026, 22:00): seeds 11 and 23 in lane 2 (after the
+# 30-seed MW s23 was stopped), seed 41 in lane 1 once its 30-seed MW s11 exits.
+mw NO 5e5 11 dayabay,kamland,minos,deepcore
+mw NO 5e5 23 dayabay,kamland,minos,deepcore

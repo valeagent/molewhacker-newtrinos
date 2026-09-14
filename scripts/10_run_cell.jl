@@ -24,7 +24,7 @@ include(joinpath(@__DIR__, "..", "src", "neutrino_problem.jl"))
 function parse_cli(args)
     o = Dict{String,Any}("alg" => nothing, "ordering" => "NO", "B" => 5e4, "seed" => 11,
         "exps" => join(NEUTRINO_DEFAULT_EXPERIMENTS, ","),
-        "out" => joinpath(@__DIR__, "..", "out"), "force" => false, "tmax" => nothing)
+        "out" => joinpath(@__DIR__, "..", "out"), "force" => false, "tmax" => nothing, "nseed" => nothing)
     i = 1
     while i <= length(args)
         a = args[i]
@@ -36,6 +36,7 @@ function parse_cli(args)
         elseif a == "--out"; o["out"] = args[i+1]; i += 2
         elseif a == "--force"; o["force"] = true; i += 1
         elseif a == "--tmax"; o["tmax"] = parse(Int, args[i+1]); i += 2
+        elseif a == "--nseed"; o["nseed"] = parse(Int, args[i+1]); i += 2
         else; @warn "unknown argument $a ignored"; i += 1
         end
     end
@@ -65,11 +66,18 @@ function run_cell(o)
             # with B acting only as a generous call cap. Stored as algorithm :ns
             # under its own (large) budget token.
             mr = run_ns(cfg, B, seed; counter = counter, dlogz = 0.5)
-        elseif alg === :mw && o["tmax"] !== nothing
-            # Ablation only (never part of the protocol grid): MoleWhacker with
-            # the iteration cap lifted, so that the budget B is the binding stop.
-            # Store such cells under a separate --out root.
-            mr = run_mw(cfg, B, seed; counter = counter, params = ExperimentsBase.MWParams(T_max = o["tmax"]))
+        elseif alg === :mw && (o["tmax"] !== nothing || get(o, "nseed", nothing) !== nothing)
+            # Ablations only (never part of the protocol grid), each under its own
+            # --out root: --tmax N lifts the iteration cap so that the budget B is
+            # the binding stop; --nseed N caps the number of Sobol/L-BFGS seeds
+            # (the extension "Towards a global fit" uses --nseed 8 because one
+            # seed of the d = 24 target costs ~30 000 units instead of the
+            # 200 (1 + d) = 5 000 the protocol's planning rule assumes, so the
+            # protocol cap of 30 seeds would consume the whole budget).
+            p = ExperimentsBase.MWParams()
+            mr = run_mw(cfg, B, seed; counter = counter,
+                        params = ExperimentsBase.MWParams(T_max = o["tmax"] === nothing ? p.T_max : o["tmax"],
+                                                          n_seed = get(o, "nseed", nothing) === nothing ? p.n_seed : o["nseed"]))
         else
             mr = run_algorithm(alg, cfg, B, seed; counter = counter)
         end

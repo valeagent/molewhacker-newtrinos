@@ -778,3 +778,55 @@ exit after MW s11). Memory after the start: 0.9 GB available, commit 36.8 of
 MW s11 Tue 08:00–16:00; MW s23 Tue 14:00–22:00; MH s11 Wed 04:00–10:00; MW s41
 Thu 00:00–08:00. Analysis of the extension starts when MH lands (Wed), the third
 MW seed is folded in Thu. Status script updated accordingly.
+
+### 17.6 Status 2026-09-14, 22:00 - final extension design: adapted seed count (approved)
+
+Structural review of the two designs, requested and approved by Valentin (21:55).
+Three-experiment fit (d = 11): complete, nothing left to run - all protocol
+cells (IS/MH/MW 3 seeds at 5e4 and 5e5 per ordering, NS 3+2, NUTS 1+2), the six
+T_max ablation cells, the subset study, the IS diagnostics, the mechanism figure;
+20 figures + 14 tables in the chapter/appendix D, all files present, the build
+has no undefined references/citations and no overfull boxes > 5 pt in the
+neutrino files (checked 22:20). Only the merge seams remain.
+
+DeepCore extension (d = 24): the protocol's seed rule (`n_seed = 64` capped at
+30 % of B with a planning cost of 200 (1 + d) = 5 000 units per seed, i.e. 30
+seeds) fails on this target because one L-BFGS seed runs to BAT's 1000-iteration
+limit (the DeepCore expectation is piecewise linear in Δm²₃₁: response tables
+interpolated linearly between grid points -> discontinuous gradient -> 1e-8
+tolerance unreachable), ~30 000 units per seed, 30 seeds ≈ 9e5 > B = 5e5: the
+loop's budget check (top of `whack_many_moles`) stops at iteration 0. MoleWhacker
+has no budget guard on its optimiser - its cost model assumes cheap mode finding
+(goes into the discussion). Decision:
+* MH s11 reference: unchanged (pid 34184, since 21:24, -t 1, ~31 h).
+* MW protocol cell (30 seeds) s11 in lane 1 (pid 4668, since 02:21): kept as the
+  "protocol as specified" data point; its metadata (`iter_log[1].cum_cost`,
+  `n_seed_used`, stop reason) gives the exact seed cost -> replaces the
+  order-of-magnitude figure in the chapter's protocol paragraph.
+* MW with `n_seed = 8 = n_parallel`, everything else protocol, seeds 11/23/41,
+  -> `out_extension_nseed8/` (never mixed into `out_extension/runs`). Budget
+  arithmetic: 8 x ~30 000 ≈ 2.4e5 for the seeds, ~2.6e5 left for the loop (~40
+  iterations at ~6 600 per iteration: 8 Hessians x 576 + 2000 draws), so
+  T_max = 20 is reachable. Wall time ~11-13 h per cell (two rounds of four
+  parallel L-BFGS fits ≈ 6 h + loop ≈ 5 h). `tab:bench-mw-config` explicitly
+  allows a revised value if reported with the result table - done in the
+  protocol paragraph, to be repeated in the caption of `tab_nu_ext_samplers`.
+  Alternative n_seed = 4 (what the 30 % share gives literally) rejected for the
+  octant-coverage risk; fallback if the protocol cell shows > 60 000 units/seed.
+* Implementation: `--nseed N` plumbed through `10_run_cell.jl` and
+  `11_run_queue.jl` (parse-checked); queues `ext_deepcore_NO_nseed8.txt` (s11,
+  s23) and `ext_deepcore_NO_nseed8_s41.txt`; `out_extension/switch_to_nseed8.ps1`
+  (pids pinned - julia children expose no command line) stopped lane 2 (host
+  22052 + julia 30836, the 30-seed MW s23 13.5 h in; partial cell moved to
+  `out_extension/_stopped_30seed_s23_20260914_2159`), started
+  `lane2_nseed8.ps1` (julia pid 27480, s11 then s23) and `lane1_after_nseed8.ps1`
+  (waits for pid 4668 to exit, then MW s41). Verified 22:12: all three julia
+  processes busy (178 % / 272 % / 99 %), cell dir of nseed8 s11 created 22:03,
+  1.0 GB RAM free.
+* Not done, final: inverted ordering (module), NUTS/NS/IS at d = 24 (cost), the
+  uncapped d = 24 run (cancelled), more MH seeds, a second budget tier (one
+  budget only, B = 5e5).
+* ETAs: nseed8 s11 Tue 09-11 h; protocol cell Tue 08-16 h; nseed8 s23 Tue
+  20-24 h; MH Wed 04-10 h; nseed8 s41 Wed 00-05 h. Analysis Wed, section
+  Wed/Thu. Analysis scripts 81/82/83/85 to be pointed at the two roots
+  (protocol cell + MH in `out_extension`, MW set in `out_extension_nseed8`).
