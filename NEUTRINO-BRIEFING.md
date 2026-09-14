@@ -660,3 +660,60 @@ evidence and ordering factor with and without DeepCore; consistency ratios
 Daya Bay–DeepCore and MINOS–DeepCore; nuisance posteriors in the appendix.
 Analysis scripts to be prepared while the runs go (own `out_extension/`
 tree, never mixed into `out/runs`).
+
+## 17. Status 2026-09-14, 09:30 — seed 41 in, extension lanes running (lane 2 relaunched), section drafted
+
+### 17.1 Runs
+
+Seed 41 of the T_max ablation finished at 01:20 (IO) and 02:18 (NO): NO 296
+iterations, N_eff 7.40e4, ln Z −510.868, 9.5 h; IO 328 iterations, N_eff
+5.59e4, ln Z −511.271, 9.3 h (both within the seed-11/23 ranges; wall shorter
+because nothing else was computing during the night). The extension chain
+started the two DeepCore lanes at 02:21. Lane 1 (MW s11 → MH s11, pid 4668) has
+been computing since, at 2.7–2.9 cores; the MW cell had not finished after 7 h
+(estimate was ~4 h; the per-evaluation cost with three julia processes on the
+10-core i5-1335U is higher than the 0.1 s of the probe). Lane 2 had **hung at
+start-up**: its julia child (pid 9712) sat for six hours at 9 MB and zero CPU —
+the lane was launched as a PowerShell background job (`Start-Job`) inside
+`chain_extension.ps1`, and julia never initialised under the job host. Killed
+at 08:26 and relaunched as a standalone process with
+`out_extension/lane2_extension.ps1` (same `Start-Process` pattern as lane 1,
+which works); MW s23 started at 08:33 and is computing (pid 30836). Lesson for
+the docs: never start julia from a PowerShell job; use a `-File` process.
+Revised ETA: lane 1 Tue 06:00–12:00 (MH ~18–25 h); lane 2 (s23, s41, then the
+uncapped run at full budget) Tue afternoon to Wed morning. The uncapped d = 24
+run is last in its lane and can be cancelled without loss if time runs out.
+The seed-41 fold-in of the T_max study (`73_tmax_study.jl --fresh --reuse-fresh
+--finished-only`, cached fresh draws for seeds 11/23, new draws for 41) runs
+alongside (pid 14144).
+
+### 17.2 Chapter
+
+`sec:nu-extension` "Towards a Global Fit: Adding IceCube DeepCore" drafted on
+the branch (commit 849a324): introduction, model subsection (baselines,
+matter effect, sample, 10 × 10 × 2 likelihood, thirteen nuisance parameters,
+hypersurfaces, `tab:nu-ext-priors`), protocol; the results subsection is a
+`\todo[inline]` placeholder until the runs land. Six bib entries verified and
+added (Abbasi2023, IceCube2025DeepCoreData, Honda2015, Barr2006,
+Dziewonski1981, Mikheyev1986). Facts corrected against the paper: 8 years
+2011–2019, 7.5 y livetime (the module also uses 7.5 y), PID bins
+[0.55, 0.75, 1.0] (cascade bin omitted), 82 % ν_μ CC, 2 % muons.
+
+### 17.3 Finding for the Newtrinos authors (report to Philipp)
+
+`src/experiments/icecube/deepcore_9y_verification_sample/deepcore.jl`, function
+`get_hypersurface_factor`, line 248 (pinned commit fa87689d): the `p1` term of
+the detector-response hypersurface multiplies `(params.deepcore_rel_eff_p1 + 0.05)`
+by `interpolate_hypersurface(hypersurface.hole_ice_p0, ...)` — the **p0** slope
+table — where the line above uses `hole_ice_p0` for p0 correctly. The `hs_*.csv`
+files do contain a `hole_ice_p1` column, so the intended line is
+`interpolate_hypersurface(hypersurface.hole_ice_p1, idx, fraction) * (params.deepcore_rel_eff_p1 + 0.05)`.
+Effect: the likelihood's dependence on `deepcore_rel_eff_p1` uses the wrong
+slopes (p0 slopes are ~0.3, p1 slopes ~1.7 in the first hypersurface row, so the
+p1 sensitivity is understated by a factor of a few). Left unchanged in this
+work (nothing in Newtrinos was modified); mentioned in a footnote of the
+chapter; the `p1^DC` posterior in the appendix is to be read with this in mind.
+Also worth mentioning: the hypersurfaces exist for Δm²₃₁ ∈ [1.5, 3.5]e-3 eV²
+only, so the module cannot evaluate an inverted-ordering point (BoundsError in
+`apply_hypersurfaces`, line 259) — an `abs(Δm²₃₁)` lookup would be the obvious
+approximation if the authors want IO support.
