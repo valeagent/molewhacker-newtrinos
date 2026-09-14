@@ -745,3 +745,36 @@ explicitly that nothing is patched. Consequence for the results section: the
 `p1^DC` marginal of the d = 24 cells is expected to be flat (prior), the `(p0, p1)`
 pair to show a ridge along p0 + p1 = const; both are to be described as
 properties of the published module, not of the sampler.
+
+### 17.5 Status 2026-09-14, 21:30 — d = 24 cost structure measured; MH started as third process; uncapped run cancelled
+
+Lane 1's MW s11 had been running 17 h at 19:20 with empty logs. Diagnosis: the
+`ext_deepcore_*` logs are empty because the PowerShell redirect buffers a few KB
+and the cells write ~25 lines (the ablation logs only appeared because 300
+iterations filled the buffer); progress of d = 24 cells is not observable.
+Measured costs (single thread, loaded machine): likelihood 0.221 s, ForwardDiff
+gradient 5.9 s (chunk 12, two chunks), ForwardDiff Hessian 290 s — 16x / 38x /
+165x the three-experiment values (0.014 / 0.16 / 1.8 s). The refinement loop
+(160 Hessians ≈ 5 h on four threads) is not the main cost; the seed phase is:
+30 L-BFGS fits (`n_seed_planned` for d = 24) run under BAT's `OptimizationAlg`
+defaults (`reltol = 0`, gradient tolerance 1e-8, `maxiters = 1000`). A probe of
+the first four Sobol seeds converged in value (log f ≈ −1223.3) after ~125
+gradients per seed but kept iterating (36 min, no Hessian yet), so the fits
+probably run to the iteration limit: ~2000 half-gradients ≈ 2.5 thread-hours per
+seed, ~30 h seed phase per cell, ~35 h per capped cell. Consequence for the
+budget: at 24 units per gradient and 576 per Hessian the seed phase may cost
+~7e5 > B = 5e5, in which case `whack_many_moles` stops at iteration 0 (budget
+check at the top of the loop) and the protocol cell consists of the 30-component
+seed mixture plus 2000 IS draws — to be read from the metadata (stop reason,
+iteration log) when MW s11 lands. Probe scripts were run from %TEMP% and removed.
+
+Actions (approved 21:21): (1) the uncapped d = 24 run is cancelled
+(`queues/ext_deepcore_NO_uncapped.txt` emptied; lane 2 part B will run nothing);
+(2) the MH reference s11 was started at 21:24 as a third process (`-t 1`, pid
+34184, `out_extension/mh_standalone.ps1`) with `--force`; an empty placeholder
+`result.h5` in its cell directory makes lane 1 skip its own MH line (lane 1 will
+exit after MW s11). Memory after the start: 0.9 GB available, commit 36.8 of
+41.5 GB — tight; Chrome/ChatGPT/AnyDesk (2.7 GB) are still open. Revised ETAs:
+MW s11 Tue 08:00–16:00; MW s23 Tue 14:00–22:00; MH s11 Wed 04:00–10:00; MW s41
+Thu 00:00–08:00. Analysis of the extension starts when MH lands (Wed), the third
+MW seed is folded in Thu. Status script updated accordingly.

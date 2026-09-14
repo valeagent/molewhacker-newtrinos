@@ -1,4 +1,4 @@
-# Live status of the long runs (T_max ablation, DeepCore extension) and the
+﻿# Live status of the long runs (T_max ablation, DeepCore extension) and the
 # chains that drive them. Read-only.
 #   .\scripts\95_status.ps1            one snapshot
 #   .\scripts\95_status.ps1 -Watch     refresh every 60 s (Ctrl+C to stop)
@@ -16,8 +16,7 @@ $cells = @(
     @{ n = "DeepCore ext.   MoleWhacker s11 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
     @{ n = "DeepCore ext.   MH reference s11 NO"; d = "out_extension\runs\nu_dakamide_NO_mh_d24_B5e5_seed11" },
     @{ n = "DeepCore ext.   MoleWhacker s23 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
-    @{ n = "DeepCore ext.   MoleWhacker s41 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" },
-    @{ n = "DeepCore ext.   MW cap lifted s11 NO"; d = "out_extension_tmax\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" }
+    @{ n = "DeepCore ext.   MoleWhacker s41 NO"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
 )
 
 function Fmt-Span([TimeSpan]$t) { if ($t.TotalHours -ge 1) { "{0:N1} h" -f $t.TotalHours } else { "{0:N0} min" -f $t.TotalMinutes } }
@@ -76,11 +75,16 @@ function Show-Status {
     elseif (Test-Path out_extension\chain_extension.progress) { Get-Content out_extension\chain_extension.progress -Tail 6 | ForEach-Object { Write-Host "  extension chain: $_" } }
     else { Write-Host "  extension chain: waiting for the two seed-41 results, then starts the DeepCore lanes" }
     Write-Host ""
-    Write-Host "Expected (revised Mon 08:30 after lane 2 had to be relaunched): lane 1 = MW s11 (started 02:25) then MH s11 (~18-22 h) -> ~Tue 06:00-12:00;" -ForegroundColor DarkGray
-    Write-Host "lane 2 = MW s23, MW s41 (~4-8 h each), then MW s11 uncapped (full budget, ~15-20 h) -> ~Tue 10:00-18:00. Analysis + figures follow the same day." -ForegroundColor DarkGray
+    Write-Host "Expected (revised Mon 21:30 after measuring the d = 24 costs: likelihood 0.22 s, gradient 6 s, Hessian 290 s, i.e. 16x / 38x / 165x the" -ForegroundColor DarkGray
+    Write-Host "three-experiment fit; the MoleWhacker seed phase - 30 L-BFGS fits at BAT's 1e-8 tolerance - dominates, one capped cell = ~30-35 h):" -ForegroundColor DarkGray
+    Write-Host "lane 1 = MW s11 (since 02:25) -> ~Tue 08:00-16:00, then exits (its MH cell is skipped via a placeholder); MH s11 runs as a THIRD" -ForegroundColor DarkGray
+    Write-Host "process since Mon 21:24 (-t 1, 5e5 x 0.22 s = ~31 h) -> ~Wed 04:00-10:00; lane 2 = MW s23 (since 08:33) -> ~Tue 14:00-22:00, then" -ForegroundColor DarkGray
+    Write-Host "MW s41 -> ~Thu 00:00-08:00. The uncapped d = 24 run is CANCELLED (queue emptied). Analysis + figures follow as cells land." -ForegroundColor DarkGray
     Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
-    Write-Host "Logs: out\logs\*.log.err  (flushed in chunks: gaps of 1-2 h are normal; 'busy' above is the reliable sign of life)" -ForegroundColor DarkGray
+    Write-Host "Logs: the ext_deepcore_* logs stay EMPTY until a lane's julia process exits (PowerShell redirect buffers a few KB and these cells write" -ForegroundColor DarkGray
+    Write-Host "only ~25 lines); no per-iteration progress is visible for the d = 24 cells. 'busy' above and a growing cpu column are the signs of life;" -ForegroundColor DarkGray
+    Write-Host "a cell is finished when its result.h5 appears (DONE above)." -ForegroundColor DarkGray
 }
 
 if ($Watch) {

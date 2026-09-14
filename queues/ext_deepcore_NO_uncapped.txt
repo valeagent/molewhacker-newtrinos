@@ -2,4 +2,10 @@
 # iteration cap lifted on the d = 24 target (budget is the only stopping rule),
 # the counterpart of the T_max ablation of the three-experiment fit.
 #   julia --project=. -t 4 scripts/11_run_queue.jl queues/ext_deepcore_NO_uncapped.txt --out out_extension_tmax --tmax 100000
-mw NO 5e5 11 dayabay,kamland,minos,deepcore
+#
+# CANCELLED 14 Sep 2026, 21:30 (decision after measuring the d = 24 costs:
+# likelihood 0.22 s, gradient 5.9 s, Hessian 290 s per evaluation; one capped
+# cell takes ~35 h, the seed phase alone may consume the 5e5 budget, and this
+# run would have started Thu and finished Fri for at most a few dozen extra
+# iterations). The line below is kept for the record; the queue runs nothing.
+# mw NO 5e5 11 dayabay,kamland,minos,deepcore
