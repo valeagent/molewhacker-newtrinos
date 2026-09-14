@@ -717,3 +717,31 @@ Also worth mentioning: the hypersurfaces exist for Δm²₃₁ ∈ [1.5, 3.5]e-3
 only, so the module cannot evaluate an inverted-ordering point (BoundsError in
 `apply_hypersurfaces`, line 259) — an `abs(Δm²₃₁)` lookup would be the obvious
 approximation if the authors want IO support.
+
+### 17.4 Status 2026-09-14, 11:00 — p1 slip checked upstream; decision: no patch, no rerun
+
+Checked against GitHub (API, 14 Sep 10:00): the pinned commit fa87689d (22 Aug
+2026) is still the head of `main` (compare fa87689d...main is identical) and the
+faulty line is present in every branch, including `claude` (pushed 14 Sep 09:34),
+and in all six commits that ever touched `deepcore.jl` (first version b450014a,
+29 Sep 2025). None of the 50 issues mentions it; Philipp does not know. The pin is
+the same everywhere (Manifest `repo-rev`, README, this briefing, thesis chapter
+line "commit fa87689d of the main branch"). Quantified with the new diagnostic
+`scripts/86_deepcore_p1_check.jl` (nothing applied to the environment; a corrected
+copy of `get_hypersurface_factor` is evaluated into a throw-away session only):
+as published, ∂logL/∂p1 = ∂logL/∂p0 = −167.2 at the nominal point, i.e. p0 and p1
+enter the likelihood only through their sum and the p1 marginal is essentially
+its prior; with the p1 table the slope is −1484.2 (factor 8.9). Results in
+`out_extension/tables/deepcore_p1_check.csv`; full write-up and a ready-to-paste
+message for Philipp in `docs/REPORT-newtrinos-deepcore-p1.md`.
+
+**Decision (Valentin, 11:00):** no patch, no fork, no rerun — the time budget
+does not allow restarting the extension lanes (lane 1 at 8.5 h without a
+finished cell). The runs continue with Newtrinos as published; Philipp gets the
+report; the footnote is revised once he answers (a rerun is reconsidered only if
+he confirms the bug and time permits). A load-time patch that had been prepared
+and verified in the morning was removed again; `src/neutrino_problem.jl` states
+explicitly that nothing is patched. Consequence for the results section: the
+`p1^DC` marginal of the d = 24 cells is expected to be flat (prior), the `(p0, p1)`
+pair to show a ridge along p0 + p1 = const; both are to be described as
+properties of the published module, not of the sampler.

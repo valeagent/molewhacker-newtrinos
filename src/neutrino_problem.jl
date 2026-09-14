@@ -35,6 +35,13 @@ using Newtrinos
 using .ExperimentsBase
 import .ExperimentsBase: build_log_f, _problem_symbol
 
+# Newtrinos.jl is used exactly as pinned in Manifest.toml (commit fa87689d);
+# nothing is patched at load time. A known slip in the DeepCore module (the p₁
+# hole-ice term uses the p₀ slope table, deepcore.jl line 248) is documented in
+# docs/REPORT-newtrinos-deepcore-p1.md and quantified by
+# scripts/86_deepcore_p1_check.jl; it has been reported to the authors and is
+# left as is for every result of this repository.
+
 """
     ConfigNeutrino <: ProblemConfig
 

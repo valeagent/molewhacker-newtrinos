@@ -20,6 +20,7 @@ in the benchmark repository is modified by anything here.
 | `harness/scripts2/algo/MoleWhacker.jl` | verbatim copy of the thesis-final MoleWhacker algorithm (`algo_mw.jl` includes it via the unchanged relative path) |
 | `harness/PROVENANCE.md` | source paths, copy date and SHA-256 hashes of every copied file |
 | `NEUTRINO-BRIEFING.md` | working log: reconnaissance of Newtrinos.jl, design decisions, status entries per day, physics-scope evaluation (§16) |
+| `docs/REPORT-newtrinos-deepcore-p1.md` | report to the Newtrinos authors: the p₁ hole-ice term of the DeepCore module uses the p₀ slope table (`deepcore.jl` l. 248, present on `main`); not patched here, quantified by `scripts/86_deepcore_p1_check.jl` |
 | `src/neutrino_problem.jl` | adapter: `ConfigNeutrino <: ProblemConfig`, exact affine cube ↔ physical mapping, Gaussian prior factors, `build_log_f`, `physical_summary` |
 | `src/published_values.jl` | Daya Bay 2023, KamLAND 2011, MINOS+ 2020, NuFIT 6.0 reference values and conversions |
 | `scripts/00_setup_env.jl`, `00b_pin_newtrinos.jl` | environment setup / pin |
