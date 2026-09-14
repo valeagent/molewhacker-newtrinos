@@ -73,10 +73,12 @@ function Show-Status {
     Write-Host "Chains:" -ForegroundColor Yellow
     if (Test-Path out_ablation\chain_tmax_seed23.done) { Write-Host "  seed-23 chain: done (T_max figure rebuilt and exported)" -ForegroundColor Green } else { Write-Host "  seed-23 chain: waiting for the two seed-23 results" }
     if (Test-Path out_extension\chain_extension.done) { Write-Host "  extension chain: done" -ForegroundColor Green }
-    elseif (Test-Path out_extension\chain_extension.progress) { Get-Content out_extension\chain_extension.progress | ForEach-Object { Write-Host "  extension chain: $_" } }
+    elseif (Test-Path out_extension\chain_extension.progress) { Get-Content out_extension\chain_extension.progress -Tail 6 | ForEach-Object { Write-Host "  extension chain: $_" } }
     else { Write-Host "  extension chain: waiting for the two seed-41 results, then starts the DeepCore lanes" }
     Write-Host ""
-    Write-Host "Expected: seed 41 ~00:00-01:00 Mon; extension lanes start right after; MW cells ~4 h each, MH and the uncapped MW ~18-22 h -> both lanes end ~Tue 02:00." -ForegroundColor DarkGray
+    Write-Host "Expected (revised Mon 08:30 after lane 2 had to be relaunched): lane 1 = MW s11 (started 02:25) then MH s11 (~18-22 h) -> ~Tue 06:00-12:00;" -ForegroundColor DarkGray
+    Write-Host "lane 2 = MW s23, MW s41 (~4-8 h each), then MW s11 uncapped (full budget, ~15-20 h) -> ~Tue 10:00-18:00. Analysis + figures follow the same day." -ForegroundColor DarkGray
+    Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: out\logs\*.log.err  (flushed in chunks: gaps of 1-2 h are normal; 'busy' above is the reliable sign of life)" -ForegroundColor DarkGray
 }

@@ -205,7 +205,9 @@ const FRESH_CACHE = let path = joinpath(TABLES, "tmax_study.csv"), d = Dict{Tupl
 end
 function fresh_check(r::MWRun)
     key = (String(r.ordering), String(r.kind), r.seed)
-    (!DO_FRESH && haskey(FRESH_CACHE, key)) && return FRESH_CACHE[key]
+    # cached values (from --reuse-fresh) are used whenever present; with --fresh
+    # as well, only the runs missing from the cache are drawn afresh
+    haskey(FRESH_CACHE, key) && return FRESH_CACHE[key]
     (DO_FRESH && r.mr !== nothing && haskey(r.mr.extras, :mixture)) || return (NaN, NaN, NaN, NaN)
     cfg = make_config_neutrino(ordering = r.ordering)
     log_f = build_log_f(cfg)
