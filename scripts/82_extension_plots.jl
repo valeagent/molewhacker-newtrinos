@@ -6,14 +6,17 @@
 #   julia --project=. scripts/82_extension_plots.jl [--ext out_extension_nseed8]
 #         [--ext-proto out_extension] [--B 5e5]
 #
-# Roots (final design, 14 Sep 2026): <ext>/runs holds the four-experiment cells
-# that carry the results, the MoleWhacker cells with the adapted seed count
-# n_seed = 8 (three seeds) and a copy of the MH reference cell (placed there by
-# 85_extension_analysis.ps1 so that 20_aggregate.jl finds its reference);
-# <ext-proto>/runs holds the single MoleWhacker cell in the protocol
+# Roots (final design, 14/15 Sep 2026): <ext>/runs holds the four-experiment
+# cells that carry the results, the MoleWhacker cells with the adapted seed
+# count n_seed = 8 (three seeds) and copies of the MH reference cells (placed
+# there by 85_extension_analysis.ps1 so that 20_aggregate.jl finds its
+# reference); <ext-proto>/runs holds the single MoleWhacker cell in the protocol
 # configuration as specified (30 seeds; initialisation-dominated budget) and
-# the original MH cell. Three-experiment protocol cells come from out/runs (tag
-# nu_dakami_; the chapter's campaign). Figures (PDF + PNG in out/figs):
+# the MH cells themselves. The MH reference consists of two chains of
+# B = 2.5e5 (seeds 11 and 23; cell directories ..._mh_d24_B250000_seed*) that
+# are pooled wherever "MH" appears below (see mh_B). Three-experiment protocol
+# cells come from out/runs (tag nu_dakami_; the chapter's campaign). Figures
+# (PDF + PNG in out/figs):
 #   nu_ext_plane          (sin²θ₂₃, Δm²₃₂): four-experiment MoleWhacker regions
 #                         enclosing 68.3 % and 90 % of the posterior mass, MH
 #                         (reference) 90 % contour, three-experiment 90 % contour,
@@ -77,6 +80,18 @@ function load_cells_from(runs::AbstractString, prefix::AbstractString)
     return cells
 end
 
+# Budget of the MH reference cells. At d = 24 the reference is two chains of
+# B = 2.5e5 steps (seeds 11 and 23, separate single-threaded processes since the
+# out-of-memory event of 15 Sep 2026) that are pooled everywhere below, i.e. the
+# same 5e5 likelihood evaluations as one chain of B = BTOP; selecting MH cells
+# with c.B == mh_B(cells) therefore picks up both chains. Falls back to BTOP
+# when no MH cell has finished yet.
+function mh_B(cells)
+    Bs = [c.B for c in cells if c.alg === :mh]
+    return isempty(Bs) ? BTOP : maximum(Bs)
+end
+mh_cells(cells, ordering) = [c for c in cells if c.ordering === ordering && c.alg === :mh && c.B == mh_B(cells)]
+
 # derived observables of the atmospheric sector from a physical sample matrix
 s2th23(Θ, c) = sin.(view(Θ, idx(c, :θ₂₃), :)) .^ 2
 dm32(Θ, c) = view(Θ, idx(c, :Δm²₃₁), :) .- view(Θ, idx(c, :Δm²₂₁), :)
@@ -122,7 +137,7 @@ function fig_ext_plane(cells3, cells4; B = BTOP)
     rng = MersenneTwister(17)
     Θ4, c4, ne4 = pooled(cells4, :NO, :mw, B, 40_000, rng)
     Θ4 === nothing && return nothing
-    Θh, ch, neh = pooled(cells4, :NO, :mh, B, 40_000, rng)
+    Θh, ch, neh = pooled(cells4, :NO, :mh, mh_B(cells4), 40_000, rng)
     Θ3, c3, ne3 = pooled(cells3, :NO, :mw, B, 40_000, rng)
     dc = read_dc_contour()
     set_pub_theme!(class = :wide)
@@ -191,7 +206,7 @@ end
 function fig_ext_marginals(cells3, cells4; ordering = :NO, B = BTOP)
     rng = MersenneTwister(7)
     curves = [(:mw4, pooled(cells4, ordering, :mw, B, 40_000, rng), NU_COLOR[:mw], NU_LW[:mw], :solid, "four experiments: MoleWhacker"),
-              (:mh4, pooled(cells4, ordering, :mh, B, 40_000, rng), NU_COLOR[:mh], NU_LW[:mh], :dash, "four experiments: MH (reference)"),
+              (:mh4, pooled(cells4, ordering, :mh, mh_B(cells4), 40_000, rng), NU_COLOR[:mh], NU_LW[:mh], :dash, "four experiments: MH (reference)"),
               (:mw3, pooled(cells3, ordering, :mw, B, 40_000, rng), C3, 1.2, :solid, "three experiments: MoleWhacker")]
     any(cv -> cv[2][1] !== nothing, curves) || return nothing
     bands = published_bands(ordering; deepcore = true)
@@ -238,7 +253,7 @@ end
 # All nuisance parameters of the four-experiment fit with their priors.
 function fig_ext_nuisance(cells4; ordering = :NO, algs = (:mw, :mh), B = BTOP)
     rng = MersenneTwister(5)
-    pools = Dict(alg => pooled(cells4, ordering, alg, B, 40_000, rng) for alg in algs)
+    pools = Dict(alg => pooled(cells4, ordering, alg, alg === :mh ? mh_B(cells4) : B, 40_000, rng) for alg in algs)
     avail = [p[2] for p in values(pools) if p[2] !== nothing]
     isempty(avail) && return nothing
     c0 = avail[1]
@@ -309,7 +324,7 @@ end
 
 function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
     rng = MersenneTwister(29)
-    Θh, ch, neh = pooled(cells4, ordering, :mh, B, 40_000, rng)
+    Θh, ch, neh = pooled(cells4, ordering, :mh, mh_B(cells4), 40_000, rng)
     Θh === nothing && return nothing
     mws = [c for c in cells4 if c.ordering === ordering && c.alg === :mw && c.B == B]
     isempty(mws) && return nothing
@@ -337,9 +352,10 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
         push!(leg_el, MarkerElement(color = NU_COLOR[:mw], marker = mk, markersize = 6.5, strokecolor = :black, strokewidth = 0.4))
         push!(leg_lb, "MoleWhacker seed $(c.seed)")
     end
-    # MH self-noise: leave-one-seed-out where several MH seeds exist, otherwise
-    # the W1 between the two halves of the single chain
-    mhs = [c for c in cells4 if c.ordering === ordering && c.alg === :mh && c.B == B]
+    # MH self-noise: leave-one-chain-out where several MH chains exist (at d = 24
+    # the two chains of B = 2.5e5), otherwise the W1 between the two halves of
+    # the single chain
+    mhs = mh_cells(cells4, ordering)
     if length(mhs) >= 2
         for c in mhs
             others = [o for o in mhs if o !== c]
@@ -350,7 +366,7 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
             scatter!(ax, w, 1:n; color = :white, marker = :rect, markersize = 5.5, strokecolor = :black, strokewidth = 0.6)
         end
         push!(leg_el, MarkerElement(color = :white, marker = :rect, markersize = 5.5, strokecolor = :black, strokewidth = 0.6))
-        push!(leg_lb, "MH seed vs the other MH seeds (reference noise)")
+        push!(leg_lb, length(mhs) == 2 ? "one MH chain vs the other (reference noise)" : "MH chain vs the other MH chains (reference noise)")
     else
         S = mhs[1].mr.samples; m = size(S, 2); h = m ÷ 2
         Θa = physical(mhs[1], S[:, 1:h]); Θb = physical(mhs[1], S[:, h+1:end])
@@ -383,7 +399,7 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
     adapted = mw_iterlogs(joinpath(EXT, "runs"), ordering, B)
     proto_logs = mw_iterlogs(joinpath(EXT_PROTO, "runs"), ordering, B)
     isempty(adapted) && isempty(proto_logs) && return nothing
-    mh = [c for c in cells4 if c.ordering === ordering && c.alg === :mh && c.B == B]
+    mh = mh_cells(cells4, ordering)
     set_pub_theme!(class = :wide)
     W, _ = figure_size(:wide, :viz_marginal)
     fig = Figure(size = (0.62W, 0.5W))
@@ -414,8 +430,16 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
         push!(leg_lb, LaTeXString("MoleWhacker, protocol seed count (30), \$T = $(nit)\$ iteration$(nit == 1 ? "" : "s")"))
     end
     if !isempty(mh)
+        # one marker per chain; the pooled reference (sum of N_L and of N_eff) as a hollow marker when there are several
         scatter!(ax, [c.mr.Nlike_used for c in mh], [neff(c.mr) for c in mh]; color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5)
-        push!(leg_el, MarkerElement(color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5)); push!(leg_lb, "MH (reference)")
+        push!(leg_el, MarkerElement(color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5))
+        push!(leg_lb, length(mh) == 1 ? "MH (reference)" : "MH (reference), one marker per chain (B = $(fmt_B_short(mh_B(cells4))))")
+        if length(mh) > 1
+            scatter!(ax, [sum(c.mr.Nlike_used for c in mh)], [sum(neff(c.mr) for c in mh)]; color = :white,
+                     marker = NU_MARKER[:mh], markersize = 8, strokecolor = NU_COLOR[:mh], strokewidth = 1.2)
+            push!(leg_el, MarkerElement(color = :white, marker = NU_MARKER[:mh], markersize = 8, strokecolor = NU_COLOR[:mh], strokewidth = 1.2))
+            push!(leg_lb, "MH, $(length(mh)) chains pooled (the reference)")
+        end
     end
     isempty(ends_x) || scatter!(ax, ends_x, ends_y; color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8,
                                 strokecolor = :black, strokewidth = 0.4)

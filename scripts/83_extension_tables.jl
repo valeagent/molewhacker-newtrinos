@@ -7,8 +7,9 @@
 #         [--ext-proto out_extension] [--B 5e5]
 #
 # Prerequisites: 20_aggregate.jl has been run on the campaign tree (out/) and,
-# with --tag nu_dakamide_, on <ext> (n_seed = 8 MoleWhacker cells + a copy of the
-# MH reference cell) and on <ext-proto> (the 30-seed protocol cell + the MH cell):
+# with --tag nu_dakamide_, on <ext> (n_seed = 8 MoleWhacker cells + copies of the
+# two MH reference chains, B = 2.5e5 each, seeds 11 and 23) and on <ext-proto>
+# (the 30-seed protocol cell + the MH chains):
 #   julia --project=. scripts/20_aggregate.jl --out out_extension_nseed8 --tag nu_dakamide_
 #   julia --project=. scripts/20_aggregate.jl --out out_extension --tag nu_dakamide_
 #
@@ -34,6 +35,17 @@ const TP = joinpath(EXT_PROTO, "tables") # protocol cell (30 seeds) + original M
 
 readcsv(dir, name) = let p = joinpath(dir, name); isfile(p) ? CSV.read(p, DataFrame) : nothing end
 
+# Budget of the MH reference rows in an aggregated table: at d = 24 the
+# reference is two chains of B = 2.5e5 (seeds 11 and 23) that 20_aggregate.jl
+# pools (physics.csv row with n_seeds = 2; agreement.csv leave-one-chain-out for
+# the MH rows themselves), so MH rows carry B = 2.5e5 while the MoleWhacker
+# rows carry B = BTOP. Falls back to BTOP when a table has no MH row.
+function mh_B(df)
+    (df === nothing || !("alg" in names(df)) || !any(df.alg .== "mh")) && return BTOP
+    return maximum(df.B[df.alg .== "mh"])
+end
+B_of(df, alg) = alg == "mh" ? mh_B(df) : BTOP
+
 # cube -> physical evidence shift of the d = 24 prior box (sum over the
 # Gaussian-pull parameters, as in 74_subset_study.jl), from one cell's metadata
 function logz_phys_shift(runs)
@@ -58,7 +70,7 @@ end
 
 # ---------------------------------------------------------------- physics table
 function table_ext_physics(phys3, phys4)
-    pick(phys, alg) = let s = phys === nothing ? DataFrame() : phys[(phys.ordering .== "NO") .& (phys.alg .== alg) .& (phys.B .== BTOP), :]
+    pick(phys, alg) = let s = phys === nothing ? DataFrame() : phys[(phys.ordering .== "NO") .& (phys.alg .== alg) .& (phys.B .== B_of(phys, alg)), :]
         nrow(s) == 0 ? nothing : s[1, :]
     end
     r3, r4, rh = pick(phys3, "mw"), pick(phys4, "mw"), pick(phys4, "mh")
@@ -135,11 +147,13 @@ function table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)
                 " & \\(", replace(sci(median(s.eta); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}"), "\\) & ", w1, " & ", lz,
                 " & ", fz, (fz == "--" ? "" : ", " * fe), " \\\\")
     end
-    sel(cells, alg) = cells === nothing ? DataFrame() : cells[(cells.ordering .== "NO") .& (cells.alg .== alg) .& (cells.B .== BTOP), :]
-    sela(agree, alg) = agree === nothing ? nothing : agree[(agree.ordering .== "NO") .& (agree.alg .== alg) .& (agree.B .== BTOP), :]
+    sel(cells, alg) = cells === nothing ? DataFrame() : cells[(cells.ordering .== "NO") .& (cells.alg .== alg) .& (cells.B .== B_of(cells, alg)), :]
+    sela(agree, alg) = agree === nothing ? nothing : agree[(agree.ordering .== "NO") .& (agree.alg .== alg) .& (agree.B .== B_of(agree, alg)), :]
     self(kind) = fresh === nothing ? nothing : fresh[fresh.kind .== kind, :]
     row("\\mw{}, \\(n_{\\mathrm{seed}} = 8\\), \\(\\Tmax = 20\\)", sel(cells4, "mw"), sela(agree4, "mw"), self("nseed8"), seeds4)
     row("\\mw{}, protocol seed count", sel(cellsP, "mw"), sela(readcsv(TP, "agreement.csv"), "mw"), self("protocol30"), seedsP)
+    # MH: one row per chain is pooled into per-chain medians ("seeds" = number of
+    # chains); the W1 column is the leave-one-chain-out distance between the chains
     row("\\mh{} (reference)", sel(cells4, "mh"), sela(agree4, "mh"), nothing, nothing)
     println(io_, "  \\bottomrule")
     println(io_, "\\end{tabular}")
@@ -163,7 +177,7 @@ function main_ext()
     shift = logz_phys_shift(joinpath(EXT, "runs"))
     s = DataFrame(quantity = String[], value = Float64[], note = String[])
     push!(s, ("logZ_phys_shift", shift, "ln Z_phys = ln Z_cube + shift (sum over Gaussian-pull parameters of the d = 24 box)"))
-    for r in eachrow(cells4[cells4.B .== BTOP, :])
+    for r in eachrow(cells4)      # MoleWhacker cells at BTOP and the MH chains at 2.5e5
         push!(s, ("logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "pooled-cloud estimate"))
         push!(s, ("logZ_phys_$(r.alg)_seed$(r.seed)", r.logZ + shift, "physical units"))
         push!(s, ("neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
@@ -175,7 +189,7 @@ function main_ext()
         push!(s, ("$(tag)_iterations_seed$(r.seed)", r.iterations, "whacking iterations; stop = $(r.stop)"))
     end
     if cellsP !== nothing
-        for r in eachrow(cellsP[cellsP.B .== BTOP, :])
+        for r in eachrow(cellsP[cellsP.alg .== "mw", :])
             push!(s, ("protocol30_logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "pooled-cloud estimate, protocol cell"))
             push!(s, ("protocol30_neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("protocol30_wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
         end

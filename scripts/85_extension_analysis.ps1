@@ -2,11 +2,13 @@
 # 85_extension_analysis.ps1 - the complete post-run analysis of the extension
 # "Towards a global fit" (Daya Bay + KamLAND + MINOS + IceCube DeepCore, d = 24).
 #
-# Output roots (final design, 14 Sep 2026):
-#   out_extension\runs         MoleWhacker protocol cell (30 seeds) s11 + MH reference s11
+# Output roots (final design, 14/15 Sep 2026):
+#   out_extension\runs         MoleWhacker protocol cell (30 seeds) s11 + the MH
+#                              reference: two chains of B = 2.5e5, seeds 11 and 23
+#                              (memory-staggered relaunch after the OOM of 15 Sep)
 #   out_extension_nseed8\runs  MoleWhacker with n_seed = 8, seeds 11/23/41 (the result set)
-# The MH cell is COPIED into out_extension_nseed8\runs (step 0) so that
-# 20_aggregate.jl finds the reference for the agreement table of that root.
+# The MH chains are COPIED into out_extension_nseed8\runs (step 0) so that
+# 20_aggregate.jl finds the pooled reference for the agreement table of that root.
 #
 #   powershell -File scripts\85_extension_analysis.ps1 [-Threads 4] [-NFresh 30000] [-SkipFresh]
 #
@@ -29,17 +31,23 @@ function Step($name, $args) {
     & julia --project=. -t $Threads @args 2>&1 | Tee-Object -FilePath $log -Append | Select-Object -Last 3
     if ($LASTEXITCODE -ne 0) { Write-Warning "$name exited with $LASTEXITCODE (see $log)" }
 }
-# 0. MH reference into the result root (only when finished: non-empty result.h5)
-$mhSrc = Join-Path $PROTO "runs\nu_dakamide_NO_mh_d24_B5e5_seed11"
-$mhDst = Join-Path $MAIN  "runs\nu_dakamide_NO_mh_d24_B5e5_seed11"
-if ((Test-Path "$mhSrc\result.h5") -and (Get-Item "$mhSrc\result.h5").Length -gt 0) {
-    if (-not (Test-Path "$mhDst\result.h5") -or (Get-Item "$mhDst\result.h5").Length -ne (Get-Item "$mhSrc\result.h5").Length) {
-        New-Item -ItemType Directory -Path $mhDst -Force | Out-Null
-        Copy-Item "$mhSrc\*" $mhDst -Recurse -Force
-        Write-Host ("{0}  MH reference cell copied into {1}" -f (Get-Date -Format "HH:mm:ss"), $MAIN)
+# 0. MH reference chains into the result root (each only when finished, i.e. a
+#    non-empty result.h5): two chains of B = 2.5e5, seeds 11 and 23
+#    (nu_dakamide_NO_mh_d24_B250000_seed*), pooled by 20_aggregate.jl.
+$mhCells = @(Get-ChildItem (Join-Path $PROTO "runs") -Directory -Filter "nu_dakamide_NO_mh_*" -ErrorAction SilentlyContinue)
+$nCopied = 0
+foreach ($c in $mhCells) {
+    $src = $c.FullName; $dst = Join-Path $MAIN ("runs\" + $c.Name)
+    if (-not ((Test-Path "$src\result.h5") -and (Get-Item "$src\result.h5").Length -gt 0)) { continue }
+    if (-not (Test-Path "$dst\result.h5") -or (Get-Item "$dst\result.h5").Length -ne (Get-Item "$src\result.h5").Length) {
+        New-Item -ItemType Directory -Path $dst -Force | Out-Null
+        Copy-Item "$src\*" $dst -Recurse -Force
+        Write-Host ("{0}  MH chain {1} copied into {2}" -f (Get-Date -Format "HH:mm:ss"), $c.Name, $MAIN)
     }
-} else {
-    Write-Warning "MH reference not finished yet: agreement and MH columns will be missing"
+    $nCopied++
+}
+if ($nCopied -lt 2) {
+    Write-Warning ("only {0} of 2 MH reference chains finished: agreement and MH columns will be missing or provisional" -f $nCopied)
 }
 Step "aggregate $MAIN"  @("scripts\20_aggregate.jl", "--out", $MAIN,  "--tag", "nu_dakamide_")
 Step "aggregate $PROTO" @("scripts\20_aggregate.jl", "--out", $PROTO, "--tag", "nu_dakamide_")
