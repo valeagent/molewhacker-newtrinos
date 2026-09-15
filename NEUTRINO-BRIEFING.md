@@ -919,3 +919,54 @@ system-managed pagefile is at 31.7 GB and could grow to at most 46.5 GB). Big
 reclaimable items if wanted later: Docker data 27.8 GB (`%LOCALAPPDATA%\Docker`,
 WSL vhdx), hiberfil.sys 6.2 GB (`powercfg /h off`), .julia depot 10.4 GB
 (needed). No action taken.
+
+### 17.10 Status 2026-09-15, 12:40 - disk freed; analysis pipeline adapted to the two-chain reference; results section pre-drafted
+
+Disk: the legacy benchmark results of the old pipeline
+(`02_molewhacker\MoleWhacker\results`, 137 GB, Aug 2025 - Feb 2026) were
+validated as unused by the thesis (all 91 benchmark figures come from the
+V5-V8 harness `experiments/out` and exist in the published
+`molewhacker-bench` repository; no thesis, harness or bench-repo file
+references the folder) and Valentin deleted the 137 GB of `.jld2` dumps;
+`results_2` (96 GB, same era, same verdict) is the next candidate. C: now has
+~170 GB free.
+
+Analysis: `82_extension_plots.jl` / `83_extension_tables.jl` /
+`85_extension_analysis.ps1` now treat the MH reference as the pool of the two
+`B = 2.5e5` chains (`mh_B`: the top MH budget of a root; cell directories
+`nu_dakamide_NO_mh_d24_B250000_seed{11,23}`; `20_aggregate.jl` already
+pooled top-budget MH and does leave-one-chain-out for the MH rows). Step 0 of
+the orchestration copies every finished MH chain into `out_extension_nseed8`.
+The whole chain (aggregate x 2, plots, tables) was run on synthetic d = 24
+cells built from the protocol cell (fixture in `%TEMP%\ext_fake`, nothing in
+the repository): layouts checked and fixed (legends below the axes in the plane
+and seed-count figures, the seed-count figure's cost axis linear in 1e5 units
+because the range spans less than a decade, a 1e-4 floor on the log agreement
+axis so that a parameter with W1 = 0 cannot blank the figure, MH markers per
+chain plus their pool). `81_extension_fresh.jl` is untouched (MW only); at
+0.22 s per evaluation its 3e4 draws per cell cost ~0.5 h per cell on four
+threads, ~2 h for the four MW cells - run it after the cells land, not while
+they run.
+
+Protocol cell, component anatomy (from `result.h5`, mixture in
+PriorToNormal space mapped back through the normal CDF): 30 fits -> 11
+distinct components after the duplicate merge; 9 lower octant
+(sin^2 theta_23 = 0.45-0.47), 2 upper (0.534, 0.538). The distinct optima
+differ in delta_CP (2.6-2.75 vs 5.49), in the flux-ratio pulls
+sigma_{nue/nuebar} and sigma_{numu/numubar} (near 0 in eight fits, -1.9 to
+-3.0 = the truncation edge in three), in the KamLAND energy scale (-0.83 to
++0.27) and in p1 (-0.05 in ten, 0.006 in one; p0 + p1 roughly constant, the
+degenerate ridge of the p1 slip). Mixture weights (target density at the mode
+over mixture density): 0.638 / 0.203 / 0.159 on three lower-octant components,
+< 1e-3 on the other eight including both upper-octant ones. Cloud ln Z (cube)
+-1260.36 from the 2000 draws (ESS 18; not a usable estimate).
+
+Thesis side (branch `neutrino-chapter`): FIGURES-INDEX rows for the six
+extension figures (status `missing`); `docs/DRAFT-nu-ext-results.tex`
+pre-drafts the results subsection - protocol-cell paragraph, all figure and
+table captions final, every number that depends on the n_seed = 8 cells or the
+reference marked `<<...>>`; STATUS.md updated.
+
+Runs at 12:40: MW n_seed = 8 s23 (pid 27480, since 10:04), MH s11 and s23
+(pids 27868, 34132, since 10:32), all busy; lane 1 (MW s11) starts 14:00, lane 3
+(MW s41) after s23; watchdog and both lane hosts alive; commit 24 of 47 GB.
