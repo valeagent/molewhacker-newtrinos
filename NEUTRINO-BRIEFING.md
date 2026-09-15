@@ -897,3 +897,25 @@ Chapter: protocol paragraph now describes the two-seed MH reference; todo box
 records the OOM and the s11 trajectory. Analysis scripts (82/83) must select
 the MH cells by the maximum MH budget in the root (B = 250000, not BTOP) - to
 do before the Wednesday analysis.
+
+### 17.9 Status 2026-09-15, 10:55 - pause/resume for the user; disk check
+
+Valentin needs Chrome + AnyDesk for about an hour (15-16 h). Added
+`scripts/96_pause_resume.ps1` (+ `pause.cmd` / `resume.cmd`): suspends the
+MoleWhacker julia processes via `NtSuspendProcess` (MH keeps running; `-All`
+includes MH), resumes via `NtResumeProcess`; MH pids in `out_extension/mh_pids.txt`.
+Tested live on the s23 lane (8 s pause: 0.00 s CPU during, resumed at 2.6
+cores). A suspended process keeps its memory (commit unchanged) but cannot spike,
+which is what matters while the apps are open. Waiters are unaffected (a
+suspended lane is alive). Each paused hour shifts the MW ETAs by one hour.
+
+Progress lost by the OOM: MH s11 12.6 h, MW s11 12.0 h, MW s41 9.7 h of compute
+(~half a day of calendar time). Intact: the whole three-experiment campaign, the
+T_max ablation, the protocol cell (30 seeds), the s23 cell, the s11 iteration
+trajectory (CSV).
+
+Disk: C: 28.7 GB free of 952 GB. Enough for the runs (outputs < 1 GB; the
+system-managed pagefile is at 31.7 GB and could grow to at most 46.5 GB). Big
+reclaimable items if wanted later: Docker data 27.8 GB (`%LOCALAPPDATA%\Docker`,
+WSL vhdx), hiberfil.sys 6.2 GB (`powercfg /h off`), .julia depot 10.4 GB
+(needed). No action taken.

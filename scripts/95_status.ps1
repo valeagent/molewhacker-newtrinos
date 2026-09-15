@@ -89,6 +89,8 @@ function Show-Status {
     Write-Host "  lane 3  = MW n_seed = 8 s41 starts when the s23 process exits -> ~Wed 03:00-05:00;" -ForegroundColor DarkGray
     Write-Host "  watchdog = out_extension\mem_watchdog.ps1 kills the largest julia if the commit charge exceeds 44 GB (see chain progress lines)." -ForegroundColor DarkGray
     Write-Host "PLEASE keep Chrome, ChatGPT, Slack, Perplexity, Wispr Flow, Claude, AnyDesk closed (about 10 GB of commit) until Wed morning." -ForegroundColor Yellow
+    Write-Host "Need the laptop for an hour? Double-click pause.cmd (suspends the MoleWhacker cells at OS level, nothing is lost, MH keeps running)," -ForegroundColor Yellow
+    Write-Host "open what you need, and double-click resume.cmd when done. Each paused hour shifts the MW ETAs by one hour." -ForegroundColor Yellow
     Write-Host "Budget arithmetic for n_seed = 8: seeds 8 x 27 800 = 222 000 units (45 %), loop ~8 700 per iteration -> T_max = 20 reachable (s11 reached" -ForegroundColor DarkGray
     Write-Host "iteration 15 with 355 000 units before the OOM). All extension cells expected by Wed 16.09 morning; analysis + figures follow." -ForegroundColor DarkGray
     Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
