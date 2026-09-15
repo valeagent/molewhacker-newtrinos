@@ -84,15 +84,15 @@ function Show-Status {
     Write-Host "their Hessian phase; MH s11 (192 585 of 500 000 steps), MW n_seed = 8 s11 (iteration 15, ESS 927, eff 41 %) and MW n_seed = 8 s41 all" -ForegroundColor Red
     Write-Host "raised OutOfMemoryError and were lost (archived under */_oom_20260915_1000). Relaunched 10:32, memory-staggered:" -ForegroundColor Red
     Write-Host "  MH      = two cells, seeds 11 and 23, B = 2.5e5 each (same 5e5 total, pooled as at d = 11), two -t 1 processes -> ~Wed 02:00-07:00;" -ForegroundColor DarkGray
-    Write-Host "  lane 2  = MW n_seed = 8 s23 (since 10:04) -> ~Tue 21:30-23:30 (paused 15:24-18:41 for the user);" -ForegroundColor DarkGray
-    Write-Host "  lane 1  = MW n_seed = 8 s11 (since 14:02, paused 15:24-18:41) -> ~Wed 01:30-03:30;" -ForegroundColor DarkGray
-    Write-Host "  lane 3  = MW n_seed = 8 s41 starts when the s23 process exits -> ~Wed 10:00-12:30;" -ForegroundColor DarkGray
-    Write-Host "  watchdog = out_extension\mem_watchdog.ps1 kills the largest julia if the commit charge exceeds 44 GB (see chain progress lines)." -ForegroundColor DarkGray
+    Write-Host "  lane 2  = MW n_seed = 8 s23 (since 10:04, paused 15:24-18:41) -> ~Wed 03:00-05:00 (a cell needs ~14.5 h of compute);" -ForegroundColor DarkGray
+    Write-Host "  lane 1  = MW n_seed = 8 s11 (since 14:02) SUSPENDED since 21:22 (four processes paged the RAM to death: MH fell to 30 %); resumes when s23 exits -> ~Wed 14:00-16:00;" -ForegroundColor DarkGray
+    Write-Host "  lane 3  = MW n_seed = 8 s41 starts when s23 AND both MH chains have exited (max. 3 julia processes = no paging) -> ~Wed 18:00-20:00;" -ForegroundColor DarkGray
+    Write-Host "  watchdog = out_extension\mem_watchdog.ps1 kills the MoleWhacker lane with the least CPU time if the commit charge exceeds 44 GB." -ForegroundColor DarkGray
     Write-Host "PLEASE keep Chrome, ChatGPT, Slack, Perplexity, Wispr Flow, Claude, AnyDesk closed (about 10 GB of commit) until Wed morning." -ForegroundColor Yellow
     Write-Host "Need the laptop for an hour? Double-click pause.cmd (suspends the MoleWhacker cells at OS level, nothing is lost, MH keeps running)," -ForegroundColor Yellow
     Write-Host "open what you need, and double-click resume.cmd when done. Each paused hour shifts the MW ETAs by one hour." -ForegroundColor Yellow
     Write-Host "Budget arithmetic for n_seed = 8: seeds 8 x 27 800 = 222 000 units (45 %), loop ~8 700 per iteration -> T_max = 20 reachable (s11 reached" -ForegroundColor DarkGray
-    Write-Host "iteration 15 with 355 000 units before the OOM). MH and s11 by Wed morning, s41 by Wed midday (the 3.3 h pause shifted the MW lanes); analysis + figures follow." -ForegroundColor DarkGray
+    Write-Host "iteration 15 with 355 000 units before the OOM). MH ~Wed 03:00-04:00; analysis with two MW seeds Wed afternoon, refreshed with s41 when it lands." -ForegroundColor DarkGray
     Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: the ext_deepcore_* logs stay EMPTY until a lane's julia process exits (PowerShell redirect buffers a few KB and these cells write" -ForegroundColor DarkGray
