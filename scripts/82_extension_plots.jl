@@ -142,7 +142,7 @@ function fig_ext_plane(cells3, cells4; B = BTOP)
     dc = read_dc_contour()
     set_pub_theme!(class = :wide)
     W, _ = figure_size(:wide, :viz_marginal)
-    fig = Figure(size = (W, 0.56W))
+    fig = Figure(size = (W, 0.64W))
     ax = Axis(fig[1, 1]; xlabel = L"\sin^2\theta_{23}", ylabel = L"\Delta m^2_{32}\;[10^{-3}\,\mathrm{eV}^2]",
               xticks = WilkinsonTicks(6), yticks = WilkinsonTicks(6))
     standard_axis!(ax)
@@ -192,10 +192,10 @@ function fig_ext_plane(cells3, cells4; B = BTOP)
     push!(leg_lb, "IceCube published best fit (1σ)")
     vlines!(ax, [0.5]; color = :gray55, linestyle = :dot, linewidth = 0.6)   # maximal mixing
     xlims!(ax, xl...); ylims!(ax, yl...)
-    Legend(fig[1, 2], leg_el, leg_lb; framevisible = false, labelsize = 7, patchsize = (14, 8), rowgap = 4,
-           tellheight = false, valign = :center, padding = (0, 0, 0, 0))
-    Label(fig[0, 1:2], "Normal ordering, B = $(fmt_B_short(B))"; fontsize = 8.5, font = :regular, tellwidth = false)
-    rowgap!(fig.layout, 4); colgap!(fig.layout, 12)
+    Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = 3, framevisible = false, labelsize = 7,
+           patchsize = (14, 8), rowgap = 2, colgap = 14, tellwidth = false, tellheight = true, padding = (0, 0, 0, 0))
+    Label(fig[0, 1], "$(EXT_TITLE), normal ordering, B = $(fmt_B_short(B))"; fontsize = 8.5, font = :regular, tellwidth = false)
+    rowgap!(fig.layout, 4)
     return fig
 end
 
@@ -238,7 +238,7 @@ function fig_ext_marginals(cells3, cells4; ordering = :NO, B = BTOP)
             push!(leg_lb, "published (1σ; hexagon = IceCube)")
         end
         xl, xh = zoom_range(allx, c0.lo[i] * sc, c0.hi[i] * sc)
-        top = haskey(bands, nm) ? pub_overlay!(ax, bands[nm], ymax, sc; xr = (xl, xh), dy = 0.2) : 1.15ymax
+        top = haskey(bands, nm) ? pub_overlay!(ax, bands[nm], ymax, sc; xr = (xl, xh), dy = 0.3) : 1.15ymax
         xlims!(ax, xl, xh); ylims!(ax, 0, top)
     end
     Legend(fig[3, 1:3], leg_el, leg_lb; orientation = :horizontal, nbanks = 3, framevisible = false,
@@ -343,9 +343,13 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
     xs_all = Float64[]
     seedmark = Dict(11 => :circle, 23 => :rect, 41 => :utriangle)
     leg_el = Any[]; leg_lb = String[]
+    # log axis: a W1 of exactly zero (a parameter pinned to one value in both
+    # samples) or a zero reference sd would otherwise leave the whole axis empty
+    W1FLOOR = 1e-4
+    ratio(a, b, k) = (v = w1_1d(a, b) / sdh[k]; isfinite(v) ? max(v, W1FLOOR) : W1FLOOR)
     for c in sort(mws; by = c -> c.seed)
         Θm = eq_physical(c, 40_000, rng)
-        w = [w1_1d(view(Θm, rows[k], :), view(Θh, rows[k], :)) / sdh[k] for k in 1:n]
+        w = [ratio(view(Θm, rows[k], :), view(Θh, rows[k], :), k) for k in 1:n]
         append!(xs_all, w)
         mk = get(seedmark, c.seed, :diamond)
         scatter!(ax, w, 1:n; color = NU_COLOR[:mw], marker = mk, markersize = 6.5, strokecolor = :black, strokewidth = 0.4)
@@ -360,8 +364,8 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
         for c in mhs
             others = [o for o in mhs if o !== c]
             Θo = hcat((eq_physical(o, cld(40_000, length(others)), rng) for o in others)...)
-            Θc = eq_physical(c, 40_000, rng)
-            w = [w1_1d(view(Θc, rows[k], :), view(Θo, rows[k], :)) / sdh[k] for k in 1:n]
+            Θc = eq_physical(c, size(Θo, 2), rng)
+            w = [ratio(view(Θc, rows[k], :), view(Θo, rows[k], :), k) for k in 1:n]
             append!(xs_all, w)
             scatter!(ax, w, 1:n; color = :white, marker = :rect, markersize = 5.5, strokecolor = :black, strokewidth = 0.6)
         end
@@ -369,8 +373,8 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
         push!(leg_lb, length(mhs) == 2 ? "one MH chain vs the other (reference noise)" : "MH chain vs the other MH chains (reference noise)")
     else
         S = mhs[1].mr.samples; m = size(S, 2); h = m ÷ 2
-        Θa = physical(mhs[1], S[:, 1:h]); Θb = physical(mhs[1], S[:, h+1:end])
-        w = [w1_1d(view(Θa, rows[k], :), view(Θb, rows[k], :)) / sdh[k] for k in 1:n]
+        Θa = physical(mhs[1], S[:, 1:h]); Θb = physical(mhs[1], S[:, h+1:h+h])
+        w = [ratio(view(Θa, rows[k], :), view(Θb, rows[k], :), k) for k in 1:n]
         append!(xs_all, w)
         scatter!(ax, w, 1:n; color = :white, marker = :rect, markersize = 5.5, strokecolor = :black, strokewidth = 0.6)
         push!(leg_el, MarkerElement(color = :white, marker = :rect, markersize = 5.5, strokecolor = :black, strokewidth = 0.6))
@@ -381,6 +385,7 @@ function fig_ext_agreement(cells4; ordering = :NO, B = BTOP)
     text!(ax, 1.0, 1.0; text = "oscillation parameters", space = :relative, align = (:right, :top), offset = (-4, -3), fontsize = 6.5, color = :gray30)
     text!(ax, 1.0, 1.0 - (nosc + 0.5) / n; text = "nuisance parameters", space = :relative, align = (:right, :top), offset = (-4, -3), fontsize = 6.5, color = :gray30)
     ax.xticks = ticks_125(xs_all)
+    xlims!(ax, minimum(xs_all) / 1.6, maximum(xs_all) * 1.6)
     ylims!(ax, n + 0.7, 0.3)
     Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = 2, framevisible = false, labelsize = 7,
            patchsize = (10, 8), rowgap = 1, colgap = 12, tellwidth = false, padding = (0, 0, 0, 0))
@@ -402,16 +407,19 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
     mh = mh_cells(cells4, ordering)
     set_pub_theme!(class = :wide)
     W, _ = figure_size(:wide, :viz_marginal)
-    fig = Figure(size = (0.62W, 0.5W))
-    ax = Axis(fig[1, 1]; xlabel = L"N_L\;\text{consumed (likelihood equivalents)}", ylabel = L"N_{\mathrm{eff}}",
-              xscale = log10, yscale = log10)
+    fig = Figure(size = (W, 0.58W))
+    # the consumed cost spans less than one decade (2e5 .. 9e5), so it is drawn
+    # linearly in units of 1e5; N_eff spans two decades and stays logarithmic
+    u = 1e-5
+    ax = Axis(fig[1, 1]; xlabel = L"N_L\;\text{consumed}\;[10^{5}\;\text{likelihood equivalents}]", ylabel = L"N_{\mathrm{eff}}",
+              yscale = log10, xticks = WilkinsonTicks(6))
     standard_axis!(ax)
     leg_el = Any[]; leg_lb = Any[]
     ends_x = Float64[]; ends_y = Float64[]
     for (seed, df, meta) in adapted
-        lines!(ax, df.cum_cost, df.ess; color = NU_COLOR[:mw], linewidth = 1.6)
-        scatter!(ax, df.cum_cost[1:1], df.ess[1:1]; color = :white, strokecolor = NU_COLOR[:mw], strokewidth = 1.0, markersize = 5)
-        push!(ends_x, df.cum_cost[end]); push!(ends_y, df.ess[end])
+        lines!(ax, df.cum_cost .* u, df.ess; color = NU_COLOR[:mw], linewidth = 1.6)
+        scatter!(ax, df.cum_cost[1:1] .* u, df.ess[1:1]; color = :white, strokecolor = NU_COLOR[:mw], strokewidth = 1.0, markersize = 5)
+        push!(ends_x, df.cum_cost[end] * u); push!(ends_y, df.ess[end])
     end
     if !isempty(adapted)
         push!(leg_el, [LineElement(color = NU_COLOR[:mw], linewidth = 1.6),
@@ -421,21 +429,21 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
         push!(leg_lb, "iteration 0 (seed mixture)")
     end
     for (seed, df, meta) in proto_logs
-        scatter!(ax, df.cum_cost[end:end], df.ess[end:end]; color = :white, marker = NU_MARKER[:mw], markersize = 9,
+        scatter!(ax, df.cum_cost[end:end] .* u, df.ess[end:end]; color = :white, marker = NU_MARKER[:mw], markersize = 9,
                  strokecolor = NU_COLOR[:mw], strokewidth = 1.4)
     end
     if !isempty(proto_logs)
         push!(leg_el, MarkerElement(color = :white, marker = NU_MARKER[:mw], markersize = 9, strokecolor = NU_COLOR[:mw], strokewidth = 1.4))
         nit = maximum(nrow(df) - 1 for (_, df, _) in proto_logs)
-        push!(leg_lb, LaTeXString("MoleWhacker, protocol seed count (30), \$T = $(nit)\$ iteration$(nit == 1 ? "" : "s")"))
+        push!(leg_lb, LaTeXString("MoleWhacker, protocol seed count (30), \$T = $(nit)\$"))
     end
     if !isempty(mh)
         # one marker per chain; the pooled reference (sum of N_L and of N_eff) as a hollow marker when there are several
-        scatter!(ax, [c.mr.Nlike_used for c in mh], [neff(c.mr) for c in mh]; color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5)
+        scatter!(ax, [c.mr.Nlike_used * u for c in mh], [neff(c.mr) for c in mh]; color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5)
         push!(leg_el, MarkerElement(color = NU_COLOR[:mh], marker = NU_MARKER[:mh], markersize = 6.5))
-        push!(leg_lb, length(mh) == 1 ? "MH (reference)" : "MH (reference), one marker per chain (B = $(fmt_B_short(mh_B(cells4))))")
+        push!(leg_lb, length(mh) == 1 ? "MH (reference)" : "MH, one marker per chain (B = $(fmt_B_sci(mh_B(cells4))))")
         if length(mh) > 1
-            scatter!(ax, [sum(c.mr.Nlike_used for c in mh)], [sum(neff(c.mr) for c in mh)]; color = :white,
+            scatter!(ax, [sum(c.mr.Nlike_used for c in mh) * u], [sum(neff(c.mr) for c in mh)]; color = :white,
                      marker = NU_MARKER[:mh], markersize = 8, strokecolor = NU_COLOR[:mh], strokewidth = 1.2)
             push!(leg_el, MarkerElement(color = :white, marker = NU_MARKER[:mh], markersize = 8, strokecolor = NU_COLOR[:mh], strokewidth = 1.2))
             push!(leg_lb, "MH, $(length(mh)) chains pooled (the reference)")
@@ -443,11 +451,23 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
     end
     isempty(ends_x) || scatter!(ax, ends_x, ends_y; color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8,
                                 strokecolor = :black, strokewidth = 0.4)
-    vlines!(ax, [B]; color = :gray50, linewidth = 0.7, linestyle = :dot)
-    Legend(fig[1, 2], leg_el, leg_lb; framevisible = false, labelsize = 7, patchsize = (12, 8), rowgap = 3, tellheight = false)
-    Label(fig[0, 1:2], "$(EXT_TITLE), $(ord_word(ordering)), d = 24"; fontsize = 8.5, font = :regular, tellwidth = false)
-    colgap!(fig.layout, 8)
+    vlines!(ax, [B * u]; color = :gray50, linewidth = 0.7, linestyle = :dot)
+    ytop = maximum(vcat(ends_y, [neff(c.mr) for c in mh], [df.ess[end] for (_, df, _) in proto_logs], [df.ess[1] for (_, df, _) in adapted]); init = 10.0)
+    text!(ax, B * u, ytop; text = "budget", align = (:left, :top), offset = (3, 0), fontsize = 6.5, color = :gray40)
+    xlims!(ax, 0, nothing)
+    Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = 3, framevisible = false, labelsize = 7,
+           patchsize = (12, 8), rowgap = 2, colgap = 14, tellwidth = false, tellheight = true, padding = (0, 0, 0, 0))
+    Label(fig[0, 1], "$(EXT_TITLE), $(ord_word(ordering)), d = 24"; fontsize = 8.5, font = :regular, tellwidth = false)
+    rowgap!(fig.layout, 4)
     return fig
+end
+
+# "2.5×10⁵" for 250000.0, "5×10⁵" for 5e5
+function fmt_B_sci(B)
+    e = floor(Int, log10(B)); m = B / 10.0^e
+    ms = isapprox(m, round(m)) ? string(round(Int, m)) : rstrip(rstrip(@sprintf("%.2f", m), '0'), '.')
+    sup = Dict('0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴', '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹')
+    return ms * "×10" * join(sup[ch] for ch in string(e))
 end
 
 # -----------------------------------------------------------------------------
