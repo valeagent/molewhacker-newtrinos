@@ -852,3 +852,48 @@ Lanes at 08:45: nseed8 s11 running 10.7 h (RAM 4.9 GB - the cloud grows with
 the iterations, expected); nseed8 s41 started 00:28 in lane 1 (waiter worked);
 MH at 629 CPU-min / 11.3 h = 78 % of a core -> ~34 % of its 5e5 steps, ETA Wed
 06:00-14:00. Free RAM 3.3 GB.
+
+### 17.8 Status 2026-09-15, 10:45 - OUT OF MEMORY at 10:00; three cells lost; memory-staggered relaunch
+
+At ~10:00 all three running julia processes raised `OutOfMemoryError` within
+minutes of each other: MH s11 (192 585 of 500 000 steps, 12.6 h), MW n_seed = 8
+s11 (after iteration 15, 355 367 units, 12.0 h) and MW n_seed = 8 s41 (first
+Hessian batch of the loop, 286 166 units, 9.7 h). Cause: system-wide commit
+exhaustion (limit 47 GB = 15.5 GB RAM + 32 GB system-managed pagefile, already
+at its maximum). Baseline at the time ~27 GB (two MW processes ~5 GB private
+each, MH 1.5, Cursor 3, Chrome 2.7, msedgewebview2 2.0, ChatGPT 1.7, Wispr Flow
+0.9, Slack 0.7, Claude 0.6, Perplexity 0.6, AnyDesk 0.5, system ~2); the nested
+ForwardDiff Hessians of the DeepCore likelihood (chunk 12 x 12 duals, large
+tables) are transient memory spikes of several GB per thread, and both MW
+processes were in their Hessian phase (s41 iteration 0 -> 1, s11 iteration
+15 -> 16) with 4 threads each. Failed cells (result.h5 with neff = 1, notes
+"sampler raised") archived with their logs under
+`out_extension_nseed8/_oom_20260915_1000/` and `out_extension/_oom_20260915_1000/`.
+The cell running in lane 2 (s23, pid 27480, started 10:04 - i.e. seconds after
+the OOM, in its own seed phase, so unaffected) continues.
+
+What the lost s11 log proves (kept for the thesis, reproducible by the rerun):
+iteration 0: 8 seeds -> 4 components after the duplicate merge, eff 0.13 %,
+ESS 2.6 of 2000; iteration 1: 8.9 %, 180; 5: 29 %, 609; 10: 35 %, 789;
+15: 41 %, ESS 927, cloud 2253 samples. Cost per whacking iteration ~8 700
+units ((355 367 - 224 000) / 15). So n_seed = 8 does exactly what it was
+chosen for; T_max = 20 would have been reached at ~400 000 units.
+
+Relaunch 10:32 (`out_extension/relaunch_after_oom.ps1`), designed so that two
+MW processes are never in their Hessian phase simultaneously:
+* MH reference: two cells, seeds 11 and 23, B = 2.5e5 each (`10_run_cell.jl`,
+  -t 1; the harness MH runs four internal chains per cell, so this is eight
+  chains pooled at the same 5e5 total, as the three seeds were pooled at
+  d = 11), pids 27868 / 34132 -> ~Wed 02:00-07:00. Cell dirs `..._mh_d24_B250000_seed11/23`.
+* MW n_seed = 8: s23 in lane 2 (running) -> ~Tue 18-20 h; s11 in lane 1 from
+  14:00 (`lane_nseed8_delayed.ps1 -Seed 11 -StartAt 14:00`) -> ~Tue 22-24 h;
+  s41 in lane 3 when pid 27480 exits (`-Seed 41 -AfterPid 27480`) -> ~Wed 03-05 h.
+* `mem_watchdog.ps1`: polls the commit charge every 5 s, kills the julia
+  process with the largest private memory above 44 GB, reports every 30 min
+  to `chain_extension.progress`.
+* Valentin asked to keep Chrome/ChatGPT/Slack/Perplexity/Wispr/Claude/AnyDesk
+  closed (~10 GB of commit) until Wednesday.
+Chapter: protocol paragraph now describes the two-seed MH reference; todo box
+records the OOM and the s11 trajectory. Analysis scripts (82/83) must select
+the MH cells by the maximum MH budget in the root (B = 250000, not BTOP) - to
+do before the Wednesday analysis.

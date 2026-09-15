@@ -13,11 +13,12 @@ $cells = @(
     @{ n = "T_max ablation  seed 23  IO"; d = "out_ablation\runs\nu_dakami_IO_mw_d11_B5e5_seed23" },
     @{ n = "T_max ablation  seed 41  NO"; d = "out_ablation\runs\nu_dakami_NO_mw_d11_B5e5_seed41" },
     @{ n = "T_max ablation  seed 41  IO"; d = "out_ablation\runs\nu_dakami_IO_mw_d11_B5e5_seed41" },
-    @{ n = "DeepCore ext.   MW protocol (30 seeds) s11"; d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MH reference s11";           d = "out_extension\runs\nu_dakamide_NO_mh_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MW n_seed=8 s11";            d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MW n_seed=8 s23";            d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
-    @{ n = "DeepCore ext.   MW n_seed=8 s41 (lane 1 after protocol cell)"; d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
+    @{ n = "DeepCore ext.   MW protocol (30 seeds) s11";  d = "out_extension\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MH reference s11 (B 2.5e5)";  d = "out_extension\runs\nu_dakamide_NO_mh_d24_B250000_seed11" },
+    @{ n = "DeepCore ext.   MH reference s23 (B 2.5e5)";  d = "out_extension\runs\nu_dakamide_NO_mh_d24_B250000_seed23" },
+    @{ n = "DeepCore ext.   MW n_seed=8 s23 (lane 2)";    d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
+    @{ n = "DeepCore ext.   MW n_seed=8 s11 (lane 1, starts 14:00)"; d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
+    @{ n = "DeepCore ext.   MW n_seed=8 s41 (lane 3, after s23)";    d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
 )
 
 function Fmt-Span([TimeSpan]$t) { if ($t.TotalHours -ge 1) { "{0:N1} h" -f $t.TotalHours } else { "{0:N0} min" -f $t.TotalMinutes } }
@@ -79,12 +80,17 @@ function Show-Status {
     Write-Host "Design (final, Mon 22:00; protocol cell landed Tue 00:21 and confirmed it): d = 24 costs are likelihood 0.22 s, gradient 6 s, Hessian 290 s;" -ForegroundColor DarkGray
     Write-Host "one L-BFGS seed runs to BAT's 1000-iteration limit (measured: 1090 gradients, 27 800 units per seed), so the protocol's 30 seeds cost" -ForegroundColor DarkGray
     Write-Host "836 621 units = 167 % of the 5e5 budget: the protocol cell stopped at iteration 0 after 21.9 h with N_eff = 18 (kept as the data point)." -ForegroundColor DarkGray
-    Write-Host "  MH s11  = reference, third process since Mon 21:24 (-t 1, 5e5 x 0.22 s; ~78 % of a core under contention) -> ~Wed 06:00-14:00, unchanged;" -ForegroundColor DarkGray
-    Write-Host "  lane 2  = MW n_seed = 8 (everything else protocol), s11 (since 22:03) then s23 -> ~Tue 09:00-12:00 and ~Tue 20:00-Wed 02:00;" -ForegroundColor DarkGray
-    Write-Host "  lane 1  = MW n_seed = 8 s41 (since Tue 00:28, right after the protocol cell) -> ~Tue 11:00-15:00." -ForegroundColor DarkGray
-    Write-Host "Budget arithmetic for n_seed = 8: seeds 8 x 27 800 = 222 000 units (45 %), loop ~276 000 units (~6 000-10 000 per iteration) -> T_max = 20 reachable." -ForegroundColor DarkGray
-    Write-Host "The 30-seed MW s23 was STOPPED Mon 21:59 (partial cell in out_extension\_stopped_30seed_s23_*); the uncapped d = 24 run is CANCELLED." -ForegroundColor DarkGray
-    Write-Host "All extension cells expected by Wed 16.09 midday. Analysis + figures follow as cells land." -ForegroundColor DarkGray
+    Write-Host "OUT OF MEMORY, Tue 10:00: the commit charge hit the 47 GB limit (15.5 GB RAM + 32 GB pagefile) while two MW d = 24 processes were in" -ForegroundColor Red
+    Write-Host "their Hessian phase; MH s11 (192 585 of 500 000 steps), MW n_seed = 8 s11 (iteration 15, ESS 927, eff 41 %) and MW n_seed = 8 s41 all" -ForegroundColor Red
+    Write-Host "raised OutOfMemoryError and were lost (archived under */_oom_20260915_1000). Relaunched 10:32, memory-staggered:" -ForegroundColor Red
+    Write-Host "  MH      = two cells, seeds 11 and 23, B = 2.5e5 each (same 5e5 total, pooled as at d = 11), two -t 1 processes -> ~Wed 02:00-07:00;" -ForegroundColor DarkGray
+    Write-Host "  lane 2  = MW n_seed = 8 s23 (since 10:04, untouched) -> ~Tue 18:00-20:00;" -ForegroundColor DarkGray
+    Write-Host "  lane 1  = MW n_seed = 8 s11 starts 14:00 (when s23 should be past its seed phase) -> ~Tue 22:00-Wed 00:00;" -ForegroundColor DarkGray
+    Write-Host "  lane 3  = MW n_seed = 8 s41 starts when the s23 process exits -> ~Wed 03:00-05:00;" -ForegroundColor DarkGray
+    Write-Host "  watchdog = out_extension\mem_watchdog.ps1 kills the largest julia if the commit charge exceeds 44 GB (see chain progress lines)." -ForegroundColor DarkGray
+    Write-Host "PLEASE keep Chrome, ChatGPT, Slack, Perplexity, Wispr Flow, Claude, AnyDesk closed (about 10 GB of commit) until Wed morning." -ForegroundColor Yellow
+    Write-Host "Budget arithmetic for n_seed = 8: seeds 8 x 27 800 = 222 000 units (45 %), loop ~8 700 per iteration -> T_max = 20 reachable (s11 reached" -ForegroundColor DarkGray
+    Write-Host "iteration 15 with 355 000 units before the OOM). All extension cells expected by Wed 16.09 morning; analysis + figures follow." -ForegroundColor DarkGray
     Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: the ext_deepcore_* logs stay EMPTY until a lane's julia process exits (PowerShell redirect buffers a few KB and these cells write" -ForegroundColor DarkGray
