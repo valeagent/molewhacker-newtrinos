@@ -18,7 +18,7 @@ $cells = @(
     @{ n = "DeepCore ext.   MH reference s23 (B 2.5e5)";  d = "out_extension\runs\nu_dakamide_NO_mh_d24_B250000_seed23" },
     @{ n = "DeepCore ext.   MW n_seed=8 s23 (lane 2)";    d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed23" },
     @{ n = "DeepCore ext.   MW n_seed=8 s11 (lane 1, since 14:02)   "; d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed11" },
-    @{ n = "DeepCore ext.   MW n_seed=8 s41 (lane 3, after s23)";    d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
+    @{ n = "DeepCore ext.   MW n_seed=8 s41 (lane 3, after s23+MH)"; d = "out_extension_nseed8\runs\nu_dakamide_NO_mw_d24_B5e5_seed41" }
 )
 
 function Fmt-Span([TimeSpan]$t) { if ($t.TotalHours -ge 1) { "{0:N1} h" -f $t.TotalHours } else { "{0:N0} min" -f $t.TotalMinutes } }
