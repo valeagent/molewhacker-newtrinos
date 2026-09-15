@@ -39,8 +39,12 @@ function Show-Status {
     foreach ($p in $js) {
         $p.Refresh()
         $busy = ($p.TotalProcessorTime.TotalSeconds - $cpu0[$p.Id]) / 3.0 * 100   # % of one core over the last 3 s
-        $tag = if ($busy -ge 20) { "busy {0,4:N0} % of a core" -f $busy } else { "IDLE? ({0:N0} %)" -f $busy }
-        $col = if ($busy -ge 20) { "Gray" } else { "Red" }
+        # a process suspended by pause.cmd / the sequencer has every thread in Wait/Suspended: intentional, not a hang
+        $ths = @($p.Threads)
+        $suspended = ($ths.Count -gt 0) -and -not ($ths | Where-Object { -not ($_.ThreadState -eq 'Wait' -and $_.WaitReason -eq 'Suspended') })
+        $tag = if ($suspended) { "SUSPENDED (paused on purpose, nothing lost; resumes automatically or via resume.cmd)" }
+               elseif ($busy -ge 20) { "busy {0,4:N0} % of a core" -f $busy } else { "IDLE? ({0:N0} %)" -f $busy }
+        $col = if ($suspended) { "DarkYellow" } elseif ($busy -ge 20) { "Gray" } else { "Red" }
         Write-Host ("  pid {0,-6} since {1}  running {2,-8}  cpu {3,6:N0} min  ram {4,5:N0} MB  {5}" -f $p.Id, $p.StartTime.ToString("dd.MM HH:mm"), (Fmt-Span ($now - $p.StartTime)), $p.TotalProcessorTime.TotalMinutes, ($p.WorkingSet64 / 1MB), $tag) -ForegroundColor $col
     }
     Write-Host ""
