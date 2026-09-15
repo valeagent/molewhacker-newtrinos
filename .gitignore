@@ -4,6 +4,10 @@ out/runs/**/*.h5
 out_ablation/runs/**/*.h5
 out_extension/runs/**/*.h5
 out_extension_tmax/runs/**/*.h5
+out_extension_nseed8/runs/**/*.h5
+# archived partial/failed cells (stopped 30-seed s23, OOM of 15 Sep): metadata kept, samples not
+out_extension*/_stopped_*/**/*.h5
+out_extension*/_oom_*/**/*.h5
 # hold markers of runs that have not been approved yet
 out_ablation/runs/**/HOLD.txt
 # chain progress markers
