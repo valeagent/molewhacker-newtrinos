@@ -830,3 +830,25 @@ has no budget guard on its optimiser - its cost model assumes cheap mode finding
   20-24 h; MH Wed 04-10 h; nseed8 s41 Wed 00-05 h. Analysis Wed, section
   Wed/Thu. Analysis scripts 81/82/83/85 to be pointed at the two roots
   (protocol cell + MH in `out_extension`, MW set in `out_extension_nseed8`).
+
+### 17.7 Status 2026-09-15, 08:50 - protocol cell landed: prediction confirmed
+
+`out_extension/runs/nu_dakamide_NO_mw_d24_B5e5_seed11` finished 00:21 after
+21.9 h (earlier than the 30-35 h estimate: the machine had more CPU for it once
+the 30-seed s23 was stopped). Metadata: `n_seed_used = 30`, one `iter_log`
+entry (iteration 0), `cum_cost = 836 621` = 167 % of B, `stop_reason = budget`,
+N_eff = 18.1 from the 2000 seed-mixture draws (efficiency 0.9 %), cloud
+ln Z = -1260.36 (2000 draws, ESS 18: not a usable evidence). Counter:
+`n_grad_partials = 801 888`, `n_primal = 34 733` -> per seed 1090 gradients +
+~1090 function evaluations + one Hessian = 27 800 units (planning rule: 5 000).
+The duplicate merge reduced 30 -> 11 components (19 duplicates, weight 0.80):
+the Sobol seeds end at different points of the flat p0 + p1 ridge (the
+published module's exact degeneracy) rather than at distinct modes - to be
+checked in the results analysis (component means along p0, p1).
+Chapter: protocol paragraph now carries the measured numbers (1090 gradients,
+2.8e4 units per seed, 8.4e5 units = 167 %, 21.9 h, stop at iteration 0; the
+n_seed = 8 initialisation = 2.2e5 units = 45 %). Todo box updated.
+Lanes at 08:45: nseed8 s11 running 10.7 h (RAM 4.9 GB - the cloud grows with
+the iterations, expected); nseed8 s41 started 00:28 in lane 1 (waiter worked);
+MH at 629 CPU-min / 11.3 h = 78 % of a core -> ~34 % of its 5e5 steps, ETA Wed
+06:00-14:00. Free RAM 3.3 GB.

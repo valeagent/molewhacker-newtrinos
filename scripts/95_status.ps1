@@ -76,14 +76,15 @@ function Show-Status {
     elseif (Test-Path out_extension\chain_extension.progress) { Get-Content out_extension\chain_extension.progress -Tail 6 | ForEach-Object { Write-Host "  extension chain: $_" } }
     else { Write-Host "  extension chain: waiting for the two seed-41 results, then starts the DeepCore lanes" }
     Write-Host ""
-    Write-Host "Design (final, Mon 22:00): d = 24 costs are likelihood 0.22 s, gradient 6 s, Hessian 290 s; one L-BFGS seed runs to BAT's 1000-iteration" -ForegroundColor DarkGray
-    Write-Host "limit (~30 000 units), so the protocol's 30 seeds (~9e5 units) exhaust the 5e5 budget before the first whacking iteration. Therefore:" -ForegroundColor DarkGray
-    Write-Host "  lane 1  = MW protocol cell, 30 seeds, s11 (since 02:25) -> ~Tue 08:00-16:00, kept as the 'protocol as specified' data point;" -ForegroundColor DarkGray
-    Write-Host "  MH s11  = reference, third process since Mon 21:24 (-t 1, 5e5 x 0.22 s = ~31 h) -> ~Wed 04:00-10:00, unchanged;" -ForegroundColor DarkGray
-    Write-Host "  lane 2  = MW n_seed = 8 (everything else protocol), s11 then s23 (since 22:00, ~11-13 h each) -> ~Tue 09:00-11:00 and ~Tue 20:00-Wed 00:00;" -ForegroundColor DarkGray
-    Write-Host "  waiter  = MW n_seed = 8 s41 in lane 1 as soon as the protocol cell exits -> ~Wed 00:00-05:00." -ForegroundColor DarkGray
-    Write-Host "The 30-seed MW s23 was STOPPED at 21:59 (partial cell moved to out_extension\_stopped_30seed_s23_*); the uncapped d = 24 run is CANCELLED." -ForegroundColor DarkGray
-    Write-Host "All extension cells expected by Wed 16.09 morning. Analysis + figures follow as cells land." -ForegroundColor DarkGray
+    Write-Host "Design (final, Mon 22:00; protocol cell landed Tue 00:21 and confirmed it): d = 24 costs are likelihood 0.22 s, gradient 6 s, Hessian 290 s;" -ForegroundColor DarkGray
+    Write-Host "one L-BFGS seed runs to BAT's 1000-iteration limit (measured: 1090 gradients, 27 800 units per seed), so the protocol's 30 seeds cost" -ForegroundColor DarkGray
+    Write-Host "836 621 units = 167 % of the 5e5 budget: the protocol cell stopped at iteration 0 after 21.9 h with N_eff = 18 (kept as the data point)." -ForegroundColor DarkGray
+    Write-Host "  MH s11  = reference, third process since Mon 21:24 (-t 1, 5e5 x 0.22 s; ~78 % of a core under contention) -> ~Wed 06:00-14:00, unchanged;" -ForegroundColor DarkGray
+    Write-Host "  lane 2  = MW n_seed = 8 (everything else protocol), s11 (since 22:03) then s23 -> ~Tue 09:00-12:00 and ~Tue 20:00-Wed 02:00;" -ForegroundColor DarkGray
+    Write-Host "  lane 1  = MW n_seed = 8 s41 (since Tue 00:28, right after the protocol cell) -> ~Tue 11:00-15:00." -ForegroundColor DarkGray
+    Write-Host "Budget arithmetic for n_seed = 8: seeds 8 x 27 800 = 222 000 units (45 %), loop ~276 000 units (~6 000-10 000 per iteration) -> T_max = 20 reachable." -ForegroundColor DarkGray
+    Write-Host "The 30-seed MW s23 was STOPPED Mon 21:59 (partial cell in out_extension\_stopped_30seed_s23_*); the uncapped d = 24 run is CANCELLED." -ForegroundColor DarkGray
+    Write-Host "All extension cells expected by Wed 16.09 midday. Analysis + figures follow as cells land." -ForegroundColor DarkGray
     Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: the ext_deepcore_* logs stay EMPTY until a lane's julia process exits (PowerShell redirect buffers a few KB and these cells write" -ForegroundColor DarkGray
