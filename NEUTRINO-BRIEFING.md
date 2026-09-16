@@ -970,3 +970,70 @@ reference marked `<<...>>`; STATUS.md updated.
 Runs at 12:40: MW n_seed = 8 s23 (pid 27480, since 10:04), MH s11 and s23
 (pids 27868, 34132, since 10:32), all busy; lane 1 (MW s11) starts 14:00, lane 3
 (MW s41) after s23; watchdog and both lane hosts alive; commit 24 of 47 GB.
+
+### 17.11 Status 2026-09-16, 11:40 - all cells landed; analysis done; results section written
+
+Cells (all NO, B = 5e5): MW n_seed = 8 s23 finished 23:26, MH s11/s23 (2.5e5
+each) 23:51/23:53, MW s11 04:14 (resumed 23:26 after the suspension), MW s41
+07:44 (started 23:55 with --heap-size-hint=5G, alone on the machine for most
+of its run: 7.7 h; the shared/suspended cells took 13.4 and 14.2 h). All three
+n_seed = 8 cells: seed phase 283 570 units (57 %; 35 196 per fit, more than
+the protocol cell's 27 821 because the 8 Sobol points differ from the first 8
+of 30), 8 -> 4 distinct seed components, 20 iterations at ~4 650 units each,
+164 components, stop = T_max at 376.3-376.7k units. Cloud N_eff 1055 / 968 /
+460 (eta 2.8 / 2.6 / 1.2e-3); MH 38.5 / 36.6 per chain (eta 1.5e-4), acceptance
+0.28, split R-hat(theta_23) 1.09 / 1.03, per-chain upper-octant fraction
+0.32-0.64.
+
+Pipeline: `85_extension_analysis.ps1` had a real bug - the Step function's
+parameter was named ``, PowerShell's automatic variable, so every julia
+call ran with no script and exited at once (the 08:24 run "finished" in 8 s);
+renamed to ``. Fresh-draw step: 4 cells x 3e4 evaluations took 1 h 47
+on 8 threads (4.6 cores effective). `83`: fresh efficiency now in scientific
+notation. `82`: fixed y ticks of the seed-count figure. Figures exported
+(26 of 26), thesis builds (239 pp, no undefined refs).
+
+THE central sampler finding (fresh.csv, plus %TEMP% diagnostics
+`mixture_check.jl` / `fresh_anatomy.jl`, nothing in the repo): fresh
+draws from the final 164-component mixtures have ESS 117 / 245 / 111 of 3e4
+(eff 0.4-0.8 %, Pareto k 0.96 / 0.89 / 0.87) while the cloud claims 37 %; the
+11-component seed mixture of the protocol cell gives ESS 635 (2.1 %, k 0.85).
+Fresh ln Z -1260.57 / -1260.79 / -1260.66 (+-0.06-0.09) and -1260.90 +- 0.04
+vs cloud -1262.00 +- 0.06: the pooled-cloud offset is 1.3 units at d = 24
+(0.2 at d = 11). Fresh P_upper 0.44 / 0.53 / 0.41 and 0.40 vs cloud 0.34-0.37
+vs MH 0.50. Mechanism (MoleWhacker.jl whack_many_moles): the cloud = 2000
+seed-mixture draws + draws from each new component in proportion to its
+weight, re-weighted every iteration with the CURRENT mixture density; for the
+old draws that is not an importance weight. With 22-29 of 164 components above
+weight 1e-3 and only 370-850 new draws, the cloud is the seed-mixture sample
+with smoothed weights. Anatomy of the fresh weights (seed 11, 4000 draws, eff
+3.3 %): the heaviest weights come from the tails of the dominant components
+c1/c2/c35/c111 (log q -9 to +1 at similar log p), not from the wide late
+components (sd up to 135 in z-space, but ~0 mixture weight); draws from the
+two dominant components alone have eff 5.7 %. => The refined mixture is a
+worse proposal than the seed mixture; the honest MW efficiency at d = 24 is
+eta = 3-6e-4 (2-4x MH), the protocol seed mixture 7.3e-4 (5x MH). This is
+written into the chapter as the central sampler result, with the octant
+conclusion revised to P_upper = 0.4-0.5 (the cloud's 0.36 is the biased
+outlier) and ln Z_cube = -1260.7 (physical -1251.4).
+
+Physics (chapter, tab:nu-ext-physics): Delta m^2_32 = 2.406 +- 0.030 (cloud)
+/ 2.407 +0.037-0.038 (MH) / 2.404-2.411 +- 0.037 (fresh) vs 2.448 +- 0.051
+before; sin^2 theta_23 0.479 +0.052-0.043 (cloud) / 0.500 +0.063-0.059 (MH) /
+0.489-0.503 +- 0.05 (fresh); sin^2 2theta_13 0.0860 +- 0.0030, Delta m^2_21
+7.75 +- 0.20, sin^2 theta_12 0.312 unchanged; delta_CP flat by neither sampler
+(MW 2.8 +- 1.6, MH 3.6 +- 1.7 vs pi +- 1.8). Nuisance: A_eff 0.84 +- 0.03,
+mu 1.2 +- 0.3, opt 1.07 +- 0.02, abs 0.97, sca 0.99, p0 -0.23 +- 0.10, p1 =
+prior, Delta gamma 0.05 +- 0.02, n_NC 0.94 +- 0.12 (from 0.86), n_nutau
+0.97 +- 0.17. Agreement (W1/sigma_MH): 18 of 24 within 2x the chain-vs-chain
+noise; outliers theta_23, delta_CP, KL energy scale (flat/multimodal; cloud
+bias) and A_eff, opt, Delta gamma (0.1-0.2 sigma shifts).
+
+For Philipp (message material): (1) the p1 slip (17.3); (2) the pooled-cloud
+estimator of whack_many_moles is not a valid IS estimator once the mixture is
+a poor proposal - a deterministic-mixture (balance-heuristic) weighting of the
+batches or a final fresh draw should replace it; (3) the seed phase has no
+budget guard and the planning constant 200 (1 + d) fails on piecewise-linear
+likelihoods (L-BFGS to the 1000-iteration cap); (4) the loop's added
+components (Hessian at a heavy draw, weight from the mode-density ratio) do
+not improve the mixture as a proposal at d = 24.
