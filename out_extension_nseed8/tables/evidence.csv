@@ -1,0 +1,4 @@
+ordering,alg,B,seed,logZ,logZ_se,stop
+NO,mw,500000.0,11,-1261.928594191383,NaN,T_max
+NO,mw,500000.0,23,-1262.03374063466,NaN,T_max
+NO,mw,500000.0,41,-1262.0249709168197,NaN,T_max

@@ -137,7 +137,7 @@ function table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)
         w1 = (a === nothing || nrow(a) == 0) ? "--" : @sprintf("%.3f", median(a.W1_avg))
         lz = fmt_lz(s.logZ)
         fz = (fr === nothing || nrow(fr) == 0) ? "--" : fmt_lz(fr.fresh_logZ)
-        fe = (fr === nothing || nrow(fr) == 0) ? "--" : @sprintf("%.2f", median(fr.fresh_eff))
+        fe = (fr === nothing || nrow(fr) == 0) ? "--" : "\\(" * replace(sci(median(fr.fresh_eff); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}") * "\\)"   # per-draw efficiency of the fresh check, same format as eta
         ne = median(s.neff)
         nstr = ne >= 100 ? @sprintf("%.0f", ne) : @sprintf("%.1f", ne)
         ns = (sp === nothing || nrow(sp) == 0) ? "--" : string(maximum(sp.n_seed))

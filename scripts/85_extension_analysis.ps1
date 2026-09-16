@@ -25,10 +25,10 @@ Set-Location (Split-Path -Parent $PSScriptRoot)
 $ts = Get-Date -Format "yyyyMMdd_HHmmss"
 $log = "out\logs\85_extension_analysis_$ts.log"
 $MAIN = "out_extension_nseed8"; $PROTO = "out_extension"
-function Step($name, $args) {
+function Step($name, $jargs) {   # not $args: that is PowerShell's automatic variable and arrives empty
     Write-Host ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $name)
     "=== $name ===" | Out-File $log -Append -Encoding utf8
-    & julia --project=. -t $Threads @args 2>&1 | Tee-Object -FilePath $log -Append | Select-Object -Last 3
+    & julia --project=. -t $Threads @jargs 2>&1 | Tee-Object -FilePath $log -Append | Select-Object -Last 3
     if ($LASTEXITCODE -ne 0) { Write-Warning "$name exited with $LASTEXITCODE (see $log)" }
 }
 # 0. MH reference chains into the result root (each only when finished, i.e. a

@@ -1,0 +1,41 @@
+quantity,value,note
+logZ_phys_shift,9.269167571296192,ln Z_phys = ln Z_cube + shift (sum over Gaussian-pull parameters of the d = 24 box)
+logZ_cube_mh_seed11,NaN,pooled-cloud estimate
+logZ_phys_mh_seed11,NaN,physical units
+neff_mh_seed11,38.4992338182114,
+wall_h_mh_seed11,13.19556378161111,
+logZ_cube_mh_seed23,NaN,pooled-cloud estimate
+logZ_phys_mh_seed23,NaN,physical units
+neff_mh_seed23,36.550307279926386,
+wall_h_mh_seed23,13.234729041277777,
+logZ_cube_mw_seed11,-1261.928594191383,pooled-cloud estimate
+logZ_phys_mw_seed11,-1252.6594266200866,physical units
+neff_mw_seed11,1054.566607395568,
+wall_h_mw_seed11,14.186406891972222,
+logZ_cube_mw_seed23,-1262.03374063466,pooled-cloud estimate
+logZ_phys_mw_seed23,-1252.7645730633637,physical units
+neff_mw_seed23,968.0562135560249,
+wall_h_mw_seed23,13.351280825805556,
+logZ_cube_mw_seed41,-1262.0249709168197,pooled-cloud estimate
+logZ_phys_mw_seed41,-1252.7558033455234,physical units
+neff_mw_seed41,459.62731953293047,
+wall_h_mw_seed41,7.749094276888889,
+nseed8_n_seed_seed11,8.0,seeds fitted (n_seed_used)
+nseed8_cost_iter0_seed11,283570.0,cost after iteration 0 = seed phase + 2000 IS draws
+nseed8_cost_per_seed_seed11,35196.25,(cost_iter0 - 2000) / n_seed
+nseed8_iterations_seed11,20.0,whacking iterations; stop = T_max
+nseed8_n_seed_seed23,8.0,seeds fitted (n_seed_used)
+nseed8_cost_iter0_seed23,283570.0,cost after iteration 0 = seed phase + 2000 IS draws
+nseed8_cost_per_seed_seed23,35196.25,(cost_iter0 - 2000) / n_seed
+nseed8_iterations_seed23,20.0,whacking iterations; stop = T_max
+nseed8_n_seed_seed41,8.0,seeds fitted (n_seed_used)
+nseed8_cost_iter0_seed41,283570.0,cost after iteration 0 = seed phase + 2000 IS draws
+nseed8_cost_per_seed_seed41,35196.25,(cost_iter0 - 2000) / n_seed
+nseed8_iterations_seed41,20.0,whacking iterations; stop = T_max
+protocol30_n_seed_seed11,30.0,seeds fitted (n_seed_used)
+protocol30_cost_iter0_seed11,836621.0,cost after iteration 0 = seed phase + 2000 IS draws
+protocol30_cost_per_seed_seed11,27820.7,(cost_iter0 - 2000) / n_seed
+protocol30_iterations_seed11,0.0,whacking iterations; stop = budget
+protocol30_logZ_cube_mw_seed11,-1260.3602977131707,"pooled-cloud estimate, protocol cell"
+protocol30_neff_mw_seed11,18.085941577734506,
+protocol30_wall_h_mw_seed11,21.932767147444444,

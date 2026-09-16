@@ -412,7 +412,8 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
     # linearly in units of 1e5; N_eff spans two decades and stays logarithmic
     u = 1e-5
     ax = Axis(fig[1, 1]; xlabel = L"N_L\;\text{consumed}\;[10^{5}\;\text{likelihood equivalents}]", ylabel = L"N_{\mathrm{eff}}",
-              yscale = log10, xticks = WilkinsonTicks(6))
+              yscale = log10, xticks = WilkinsonTicks(6),
+              yticks = ([10, 30, 100, 300, 1000, 3000], ["10", "30", "100", "300", "1000", "3000"]))
     standard_axis!(ax)
     leg_el = Any[]; leg_lb = Any[]
     ends_x = Float64[]; ends_y = Float64[]
