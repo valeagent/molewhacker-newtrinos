@@ -91,7 +91,7 @@ function Show-Status {
     Write-Host "  lane 2  = MW n_seed = 8 s23 (since 10:04, paused 15:24-18:41) -> ~Wed 03:00-05:00 (a cell needs ~14.5 h of compute);" -ForegroundColor DarkGray
     Write-Host "  lane 1  = MW n_seed = 8 s11 (since 14:02) SUSPENDED since 21:22 (four processes paged the RAM to death: MH fell to 30 %); resumes when s23 exits -> ~Wed 14:00-16:00;" -ForegroundColor DarkGray
     Write-Host "  lane 3  = MW n_seed = 8 s41 starts when s23 AND both MH chains have exited (max. 3 julia processes = no paging) -> ~Wed 18:00-20:00;" -ForegroundColor DarkGray
-    Write-Host "  watchdog = out_extension\mem_watchdog.ps1 kills the MoleWhacker lane with the least CPU time if the commit charge exceeds 44 GB." -ForegroundColor DarkGray
+    Write-Host "  watchdog = ops\extension\mem_watchdog.ps1 kills the MoleWhacker lane with the least CPU time if the commit charge exceeds 44 GB." -ForegroundColor DarkGray
     Write-Host "PLEASE keep Chrome, ChatGPT, Slack, Perplexity, Wispr Flow, Claude, AnyDesk closed (about 10 GB of commit) until Wed morning." -ForegroundColor Yellow
     Write-Host "Need the laptop for an hour? Double-click pause.cmd (suspends the MoleWhacker cells at OS level, nothing is lost, MH keeps running)," -ForegroundColor Yellow
     Write-Host "open what you need, and double-click resume.cmd when done. Each paused hour shifts the MW ETAs by one hour." -ForegroundColor Yellow

@@ -307,7 +307,6 @@ function fig_corner(cells, ordering; B = BTOP)
         xl = lims[nj]
         if i == j
             ax.yticklabelsvisible = false; ax.yticksvisible = false
-            ax.title = short[ni]; ax.titlesize = 9; ax.titlegap = 2      # the parameter of the diagonal panel
             ymax = 0.0
             for (Θ, c, ne, alg) in ((Θmw, cmw, nemw, :mw), (Θmh, cmh, nemh, :mh))
                 ymax = max(ymax, kde_line!(ax, col(Θ, c, ni), xl[1], xl[2]; ne = ne, color = NU_COLOR[alg],

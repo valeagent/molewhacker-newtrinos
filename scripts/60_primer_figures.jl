@@ -1,5 +1,5 @@
 # =============================================================================
-# 60_primer_figures.jl — teaching figures for neutrino/PHYSICS-PRIMER.md
+# 60_primer_figures.jl — teaching figures for docs/PHYSICS-PRIMER.md
 #   (a) analytic vacuum survival probabilities (own implementation of the
 #       three-flavour formula, NuFIT 6.0 parameters);
 #   (b) data vs. prediction for Daya Bay, KamLAND, MINOS at the joint best fit,

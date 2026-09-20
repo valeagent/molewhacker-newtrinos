@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+message: "If you use this code or the archived samples, please cite the thesis (see preferred-citation)."
+title: "molewhacker-newtrinos"
+type: software
+authors:
+  - family-names: Reindel
+    given-names: Valentin
+    email: valentin.reindel@gmail.com
+    affiliation: "Technical University of Munich, Department of Physics"
+license: MIT
+repository-code: "https://github.com/valeagent/molewhacker-newtrinos"
+abstract: >-
+  Application of the MoleWhacker adaptive importance sampler to a real
+  physics likelihood: a joint three-flavor fit of the neutrino-oscillation
+  experiments Daya Bay, KamLAND and MINOS (11 parameters, both mass
+  orderings) with the likelihoods of Newtrinos.jl, benchmarked against
+  Metropolis-Hastings, NUTS, nested sampling and plain importance sampling
+  under a common likelihood-evaluation budget, and its extension by the
+  IceCube DeepCore atmospheric sample to 24 parameters.
+preferred-citation:
+  type: thesis
+  title: "Importance Sampling Methods in the Bayesian Analysis Toolkit"
+  authors:
+    - family-names: Reindel
+      given-names: Valentin
+  institution:
+    name: "Technical University of Munich, Department of Physics"
+  year: 2026
+  thesis-type: "Master's thesis"
