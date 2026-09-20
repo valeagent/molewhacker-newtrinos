@@ -17,11 +17,11 @@
 # the effective sample size (the honest efficiency of the mixture as a
 # proposal), the Pareto k of the weights, and P(θ₂₃ > π/4). Cost: N likelihood
 # evaluations of the four-experiment target per cell (~0.1 s each, threaded).
-# Writes <ext>/tables/fresh.csv (83_extension_tables.jl adds the columns to
+# Writes <ext>/tables/fresh.csv and <ext>/fresh/<cell>.jld2 with the draws and their weights (83_extension_tables.jl adds the columns to
 # the sampler table).
 import Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
-using Random, Statistics, Printf, DataFrames, CSV, Distributions
+using Random, Statistics, Printf, DataFrames, CSV, Distributions, JLD2
 using Base.Threads: @threads
 include(joinpath(@__DIR__, "..", "harness", "experiments", "src", "ExperimentsBase.jl"))
 using .ExperimentsBase
@@ -32,7 +32,10 @@ include(joinpath(@__DIR__, "..", "src", "neutrino_problem.jl"))
 const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_nseed8") : ARGS[i+1] end
 const EXT_PROTO = let i = findfirst(==("--ext-proto"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
 const NFRESH = let i = findfirst(==("--N"), ARGS); i === nothing ? 30_000 : parse(Int, ARGS[i+1]) end
+# optional restriction, e.g. --only nseed8:11 (kind:seed) to redo a single cell
+const ONLY = let i = findfirst(==("--only"), ARGS); i === nothing ? nothing : ARGS[i+1] end
 const TABLES = joinpath(EXT, "tables"); mkpath(TABLES)
+const FRESHDIR = joinpath(EXT, "fresh")          # the fresh draws themselves (JLD2 per cell)
 
 # Generalised-Pareto shape of the largest weights (Zhang & Stephens 2009), as in 71_is_diagnostics.jl
 function gpd_khat(x::AbstractVector{<:Real})
@@ -90,6 +93,14 @@ function fresh_check(dir, kind)
     k31 = findfirst(==(:Δm²₃₁), cfg.names); k21 = findfirst(==(:Δm²₂₁), cfg.names)
     d32 = Θ[k31, :] .- Θ[k21, :]
     wmean(x) = sum(wn .* x); wsd(x) = sqrt(max(sum(wn .* (x .- wmean(x)) .^ 2), 0.0))
+    # keep the draws themselves (physical units) with their normalised weights, so
+    # that figures can show the fresh-draw marginals next to the population's
+    # (82_extension_plots.jl / 84_extension_physics.jl); ~6 MB per cell
+    mkpath(FRESHDIR)
+    JLD2.jldopen(joinpath(FRESHDIR, kind * "__" * basename(dir) * ".jld2"), "w") do f   # kind prefix: the protocol cell shares its directory name with the n_seed = 8 seed-11 cell
+        f["names"] = String.(cfg.names); f["theta"] = Θ; f["weights"] = wn; f["logw"] = logw
+        f["kind"] = kind; f["seed"] = mr.seed; f["N"] = NFRESH
+    end
     @info "fresh-draw check" dir kind seed = mr.seed logZ se ess eff = ess / NFRESH khat = pareto_k(w) P_upper = pup wall_s = round(time() - t0; digits = 1)
     return (kind = kind, seed = mr.seed, ordering = String(ordering), N = NFRESH, n_finite = count(ok),
             cloud_logZ = mr.logZ_estimate === missing ? NaN : mr.logZ_estimate, cloud_neff = neff(mr),
@@ -103,12 +114,19 @@ for (root, kind) in ((EXT, "nseed8"), (EXT_PROTO, "protocol30"))
     runs = joinpath(root, "runs"); isdir(runs) || continue
     for name in sort(readdir(runs))
         (startswith(name, "nu_") && occursin("_mw_", name) && finished(joinpath(runs, name))) || continue
+        ONLY === nothing || ONLY == kind * ":" * string(read_metadata_json(joinpath(runs, name))["seed"]) || continue
         r = fresh_check(joinpath(runs, name), kind)
         r === nothing || push!(rows, r)
     end
 end
 isempty(rows) && error("no finished MoleWhacker cells found")
 df = DataFrame(rows)
+if ONLY !== nothing && isfile(joinpath(TABLES, "fresh.csv"))
+    # a single-cell rerun replaces its own row and keeps the others
+    old = CSV.read(joinpath(TABLES, "fresh.csv"), DataFrame)
+    keep = old[[!(r.kind == df.kind[1] && r.seed == df.seed[1]) for r in eachrow(old)], :]
+    df = sort(vcat(keep, df; cols = :union), [:kind, :seed])
+end
 CSV.write(joinpath(TABLES, "fresh.csv"), df)
 println(df[:, [:kind, :seed, :cloud_logZ, :fresh_logZ, :fresh_se, :fresh_ess, :fresh_eff, :pareto_k, :fresh_P_upper]])
 println("EXT-FRESH-DONE")

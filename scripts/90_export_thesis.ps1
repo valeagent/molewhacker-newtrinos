@@ -43,7 +43,11 @@ $map = @(
     @{ src = "nu_ext_nuisance_NO.pdf";  dst = "nu__extnuisance__d24__B5e5__mw-mh__no.pdf" },
     @{ src = "nu_ext_agreement.pdf";    dst = "nu__extagreement__d24__B5e5__mw-mh__no.pdf" },
     @{ src = "nu_ext_iter_NO.pdf";      dst = "nu__extiter__d24__B5e5__mw__no.pdf" },
-    @{ src = "nu_ext_seeds.pdf";        dst = "nu__extseeds__d24__B5e5__mw__no.pdf" }
+    @{ src = "nu_ext_seeds.pdf";        dst = "nu__extseeds__d24__B5e5__mw__no.pdf" },
+    @{ src = "nu_ext_data.pdf";         dst = "nu__extdata__d24__B5e5__mw__no.pdf" },
+    @{ src = "nu_ext_tri_NO.pdf";       dst = "nu__exttri__d24__B5e5__mw-mh__no.pdf" },
+    @{ src = "nu_ext_tri_atm_NO.pdf";   dst = "nu__exttriatm__d24__B5e5__mw-mh__no.pdf" },
+    @{ src = "nu_ext_octant.pdf";       dst = "nu__extoctant__d24__B5e5__all__no.pdf" }
 )
 
 $figdir = Join-Path $Thesis "figures"

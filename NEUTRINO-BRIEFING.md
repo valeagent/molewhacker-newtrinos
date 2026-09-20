@@ -1037,3 +1037,35 @@ budget guard and the planning constant 200 (1 + d) fails on piecewise-linear
 likelihoods (L-BFGS to the 1000-iteration cap); (4) the loop's added
 components (Hessian at a heavy draw, weight from the mode-density ratio) do
 not improve the mixture as a proposal at d = 24.
+
+### 17.12 Status 2026-09-20 - physics figures of the extension; terminology unified in the thesis
+
+New `scripts/84_extension_physics.jl` (includes 82 + the Newtrinos problem):
+`nu_ext_data` (DeepCore sample vs posterior predictive of the four-experiment
+fit: track-like vs E and vs cos theta_z with ratio panels; ratio to no
+oscillation vs L/E for both PID bins, baseline from the zenith angle with a
+15 km production height, 12 log bins; 240 population draws), `nu_ext_tri_NO`
+(triangle plot of the five measured parameters, population vs MH, format of
+nu_tri_NO), `nu_ext_tri_atm_NO` (theta_23, Delta m^2_31 + A_eff, Delta gamma,
+opt, mu: Delta m^2_31 anti-correlated with Delta gamma and opt, A_eff with
+both, theta_23 with none), `nu_ext_octant` (sin^2 theta_23: three exp. vs
+four; population / fresh draws / MH with P_upper printed).
+`81_extension_fresh.jl` now stores the fresh draws as
+`out_extension_nseed8/fresh/<kind>__<cell>.jld2` (the first version used the
+cell name only and the protocol cell overwrote the n_seed = 8 seed-11 file,
+both being `nu_dakamide_NO_mw_d24_B5e5_seed11`; fixed with the kind prefix
+and a `--only kind:seed` switch, seed 11 redone). Export map extended
+(nu__extdata, nu__exttri, nu__exttriatm, nu__extoctant).
+
+Numbers behind nu_ext_data (`tables/deepcore_posterior_predictive.csv`):
+21 914 observed (11 199 track-like, 10 715 cascade-like), no-oscillation
+expectation 28 532, posterior-predictive median 21 865; track-like ratio to
+no oscillation 0.38 at L/E = 400-700 km/GeV, cascade-like 0.60.
+
+Thesis (branch neutrino-chapter): paragraphs "The data and the fit" and
+"Joint structure", the octant figure in "The octant", appendix D: the
+atmospheric triangle plot and listing lst:nu-ext-ppd. Terminology rule table
+in `.cursor/rules/01-writing-style.mdc`; applied thesis-wide: triangle plot
+(not corner), initialization phase (not seed phase), initial mixture (not seed
+mixture), accumulated population / population estimator (not pooled cloud /
+cloud), MH reference (not chain reference); glossary entries added.

@@ -130,7 +130,7 @@ function table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)
     io_ = IOBuffer()
     println(io_, "\\begin{tabular}{@{}lrrrrrrrrrrl@{}}")
     println(io_, "  \\toprule")
-    println(io_, "  Sampler & seeds & \\(n_{\\mathrm{seed}}\\) & seed phase & \\(T\\) & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) (cloud) & fresh: \\(\\ln\\evidence\\), eff. \\\\")
+    println(io_, "  Sampler & seeds & \\(n_{\\mathrm{seed}}\\) & init.\\ phase & \\(T\\) & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) (population) & fresh: \\(\\ln\\evidence\\), eff. \\\\")
     println(io_, "  \\midrule")
     function row(label, s, a, fr, sp)
         nrow(s) == 0 && return
@@ -178,7 +178,7 @@ function main_ext()
     s = DataFrame(quantity = String[], value = Float64[], note = String[])
     push!(s, ("logZ_phys_shift", shift, "ln Z_phys = ln Z_cube + shift (sum over Gaussian-pull parameters of the d = 24 box)"))
     for r in eachrow(cells4)      # MoleWhacker cells at BTOP and the MH chains at 2.5e5
-        push!(s, ("logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "pooled-cloud estimate"))
+        push!(s, ("logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "population estimate"))
         push!(s, ("logZ_phys_$(r.alg)_seed$(r.seed)", r.logZ + shift, "physical units"))
         push!(s, ("neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
     end
@@ -190,7 +190,7 @@ function main_ext()
     end
     if cellsP !== nothing
         for r in eachrow(cellsP[cellsP.alg .== "mw", :])
-            push!(s, ("protocol30_logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "pooled-cloud estimate, protocol cell"))
+            push!(s, ("protocol30_logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "population estimate, protocol cell"))
             push!(s, ("protocol30_neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("protocol30_wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
         end
     end

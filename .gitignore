@@ -30,3 +30,6 @@ out_ablation/*.done
 __pycache__/
 .vscode/
 Thumbs.db
+
+out_extension_nseed8/fresh/*.jld2
+

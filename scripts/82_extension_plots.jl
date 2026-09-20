@@ -396,7 +396,7 @@ end
 
 # -----------------------------------------------------------------------------
 # Seed count on the d = 24 target: N_eff against consumed cost. The n_seed = 8
-# cells are drawn as iteration-log curves (iteration 0 = the seed mixture, then
+# cells are drawn as iteration-log curves (iteration 0 = the initial mixture, then
 # one point per whacking iteration; end markers on top), the protocol cell with
 # 30 seeds as a single hollow marker (its log has one entry when the budget is
 # exhausted before the first iteration), the MH reference as its marker.
@@ -427,7 +427,7 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
                        MarkerElement(color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8, strokecolor = :black, strokewidth = 0.4)])
         push!(leg_lb, L"MoleWhacker, $n_{\mathrm{seed}} = 8$, $T_{\max} = 20$ (three seeds)")
         push!(leg_el, MarkerElement(color = :white, marker = :circle, markersize = 5, strokecolor = NU_COLOR[:mw], strokewidth = 1.0))
-        push!(leg_lb, "iteration 0 (seed mixture)")
+        push!(leg_lb, "iteration 0 (initial mixture)")
     end
     for (seed, df, meta) in proto_logs
         scatter!(ax, df.cum_cost[end:end] .* u, df.ess[end:end]; color = :white, marker = NU_MARKER[:mw], markersize = 9,
