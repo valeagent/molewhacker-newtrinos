@@ -231,6 +231,7 @@ function fig_ext_tri(cells4, params::Vector{Symbol}; short = SHORT_OSC, headline
         xl = lims[nj]
         if i == j
             ax.yticklabelsvisible = false; ax.yticksvisible = false
+            ax.title = lbl(ni); ax.titlesize = 9; ax.titlegap = 2      # the parameter of the diagonal panel
             ymax = 0.0
             for (Θ, c, ne, alg) in ((Θmw, cmw, nemw, :mw), (Θmh, cmh, nemh, :mh))
                 ymax = max(ymax, kde_line!(ax, col(Θ, c, ni), xl[1], xl[2]; ne = ne, color = NU_COLOR[alg],
@@ -276,7 +277,7 @@ function fig_ext_octant(cells3, cells4)
     Θ4 === nothing && return nothing
     set_pub_theme!(class = :wide)
     W, _ = figure_size(:wide, :viz_marginal)
-    fig = Figure(size = (0.8W, 0.56W))
+    fig = Figure(size = (0.8W, 0.62W))
     ax = Axis(fig[1, 1]; xlabel = L"\sin^2\theta_{23}", ylabel = "posterior density",
               yticklabelsvisible = false, yticksvisible = false, xticks = 0.3:0.1:0.7)
     standard_axis!(ax)
@@ -296,7 +297,7 @@ function fig_ext_octant(cells3, cells4)
     vspan!(ax, [0.25], [0.5]; color = (:gray80, 0.35))
     vlines!(ax, [0.5]; color = :gray40, linestyle = :dash, linewidth = 0.8)
     bands = published_bands(:NO; deepcore = true)[:θ₂₃]
-    bar_top = pub_overlay!(ax, [(l, convert_pub(pv, θ -> sin(θ)^2)) for (l, pv) in bands], ymax, 1.0; dy = 0.18)
+    bar_top = pub_overlay!(ax, [(l, convert_pub(pv, θ -> sin(θ)^2)) for (l, pv) in bands], ymax, 1.0; dy = 0.35, values = true)
     top = 1.42bar_top
     text!(ax, 0.255, 0.02top; text = "lower octant", fontsize = 7, align = (:left, :bottom), color = :gray30)
     text!(ax, 0.745, 0.02top; text = "upper octant", fontsize = 7, align = (:right, :bottom), color = :gray30)

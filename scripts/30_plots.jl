@@ -140,32 +140,60 @@ end
 
 # Published values as points with error bars stacked at the top of the panel;
 # labels sit to the right of the error bar so stacked entries never overlap.
-function pub_overlay!(ax, bands, ymax, sc; dy = 0.16, fontsize = 6.5, xr = nothing)
+# "label: value ± err" (or "value (+hi / −lo)") for the published intervals when
+# the numbers are wanted next to the bars (octant figures); `digits` from the size
+# of the smaller error so that 0.43 (+0.20/−0.04) and 0.470 (+0.017/−0.013) both read naturally
+function pub_text(label, pv, sc)
+    v, lo, hi = pv.value * sc, pv.err_lo * sc, pv.err_hi * sc
+    emax, emin = max(lo, hi), min(lo, hi); emax <= 0 && return label
+    # two significant digits of the larger error, one fewer when that leaves a
+    # trailing zero and the smaller error survives it (0.43 +0.20/-0.04, 0.470
+    # +0.017/-0.013, 0.51 ± 0.05)
+    digits = 1 - floor(Int, log10(emax))
+    if round(Int, emax * 10.0^digits) % 10 == 0 && emin * 10.0^(digits - 1) >= 1
+        digits -= 1
+    end
+    digits = clamp(digits, 1, 4)
+    f(x) = @sprintf("%.*f", digits, x)
+    return isapprox(lo, hi; rtol = 0.05) ? "$(label): $(f(v)) ± $(f(lo))" : "$(label): $(f(v)) (+$(f(hi)) / −$(f(lo)))"
+end
+
+function pub_overlay!(ax, bands, ymax, sc; dy = 0.16, fontsize = 6.5, xr = nothing, values = false)
     n = length(bands)
-    for (k, (label, pv)) in enumerate(bands)
+    values && (dy = max(dy, 0.35))          # room for a label line above each bar without touching the bar of the next row
+    for (k, (label0, pv)) in enumerate(bands)
+        label = values ? pub_text(label0, pv, sc) : label0
         y = ymax * (1.10 + dy * (n - k))
         x = pv.value * sc
+        if values
+            # the value strings are long: always centred above the bar
+            errorbars!(ax, [x], [y], [pv.err_lo * sc], [pv.err_hi * sc]; direction = :x, whiskerwidth = 4,
+                       color = PUB_COLORS[label0], linewidth = 1.0)
+            scatter!(ax, [x], [y]; marker = PUB_MARK[label0], color = PUB_COLORS[label0], markersize = 6)
+            text!(ax, x, y; text = label, align = (:center, :bottom), offset = (0, 3), fontsize = fontsize, color = PUB_COLORS[label0])
+            continue
+        end
         errorbars!(ax, [x], [y], [pv.err_lo * sc], [pv.err_hi * sc]; direction = :x, whiskerwidth = 4,
-                   color = PUB_COLORS[label], linewidth = 1.0)
-        scatter!(ax, [x], [y]; marker = PUB_MARK[label], color = PUB_COLORS[label], markersize = 6)
+                   color = PUB_COLORS[label0], linewidth = 1.0)
+        scatter!(ax, [x], [y]; marker = PUB_MARK[label0], color = PUB_COLORS[label0], markersize = 6)
         # label on the side of the bar with more room; if the bar fills the
         # panel (wide published intervals) the label goes on top of the bar
         xl_, xh_ = x - pv.err_lo * sc, x + pv.err_hi * sc
         if xr === nothing
             text!(ax, xh_, y; text = label, align = (:left, :center), offset = (4, 0),
-                  fontsize = fontsize, color = PUB_COLORS[label])
+                  fontsize = fontsize, color = PUB_COLORS[label0])
         else
             span = xr[2] - xr[1]
             room_r, room_l = xr[2] - xh_, xl_ - xr[1]
             if max(room_r, room_l) < 0.22span
                 text!(ax, x, y; text = label, align = (:center, :bottom), offset = (0, 3),
-                      fontsize = fontsize, color = PUB_COLORS[label])
+                      fontsize = fontsize, color = PUB_COLORS[label0])
             elseif room_r >= room_l
                 text!(ax, xh_, y; text = label, align = (:left, :center), offset = (4, 0),
-                      fontsize = fontsize, color = PUB_COLORS[label])
+                      fontsize = fontsize, color = PUB_COLORS[label0])
             else
                 text!(ax, xl_, y; text = label, align = (:right, :center), offset = (-4, 0),
-                      fontsize = fontsize, color = PUB_COLORS[label])
+                      fontsize = fontsize, color = PUB_COLORS[label0])
             end
         end
     end
@@ -279,6 +307,7 @@ function fig_corner(cells, ordering; B = BTOP)
         xl = lims[nj]
         if i == j
             ax.yticklabelsvisible = false; ax.yticksvisible = false
+            ax.title = short[ni]; ax.titlesize = 9; ax.titlegap = 2      # the parameter of the diagonal panel
             ymax = 0.0
             for (Θ, c, ne, alg) in ((Θmw, cmw, nemw, :mw), (Θmh, cmh, nemh, :mh))
                 ymax = max(ymax, kde_line!(ax, col(Θ, c, ni), xl[1], xl[2]; ne = ne, color = NU_COLOR[alg],
@@ -318,9 +347,46 @@ function fig_corner(cells, ordering; B = BTOP)
 end
 
 # -----------------------------------------------------------------------------
+# MoleWhacker iteration log as two panels side by side (the harness's fig_iter_mw
+# stacks them, which is too tall for the text width of the thesis): (a) the
+# running efficiency N_eff / N_L of the accumulated population after each
+# whacking iteration, (b) the number of mixture components. Same content as the
+# harness figure of the thesis family.
+function fig_iter_mw_wide(mr; title = "")
+    il = get(mr.extras, :iter_log, NamedTuple[])
+    iters = [Float64(e.iter) for e in il]
+    ess = [Float64(e.ess) for e in il]
+    ncomp = [Float64(e.n_components) for e in il]
+    cum = [haskey(e, :cum_cost) ? Float64(e.cum_cost) : NaN for e in il]
+    eta = ess ./ max.(cum, 1.0)
+    set_pub_theme!(class = :wide)
+    W, _ = figure_size(:wide, :conv)
+    fig = Figure(size = (W, 0.42W))
+    ok = (eta .> 0) .& isfinite.(eta)
+    # 1-3-10 ticks over the data range, labelled 10⁻³, 3×10⁻³, ...
+    sup = Dict('-' => '⁻', '0' => '⁰', '1' => '¹', '2' => '²', '3' => '³', '4' => '⁴', '5' => '⁵', '6' => '⁶', '7' => '⁷', '8' => '⁸', '9' => '⁹')
+    lo, hi = extrema(eta[ok])
+    tv = [m * 10.0^k for k in floor(Int, log10(lo)):ceil(Int, log10(hi)) for m in (1, 3) if lo / 1.05 <= m * 10.0^k <= hi * 1.05]
+    tl = [(m = round(Int, v / 10.0^floor(log10(v))); e = floor(Int, log10(v)); (m == 1 ? "" : "3×") * "10" * join(sup[c] for c in string(e))) for v in tv]
+    ax1 = Axis(fig[1, 1]; xlabel = L"t\;\text{(whacking iteration)}", ylabel = L"N_{\mathrm{eff}} / N_L", yscale = log10,
+               yticks = (tv, tl), title = "(a) running efficiency", titlefont = :regular, titlesize = 8)
+    standard_axis!(ax1)
+    lines!(ax1, iters[ok], eta[ok]; color = NU_COLOR[:mw], linewidth = 1.4)
+    scatter!(ax1, iters[ok], eta[ok]; color = NU_COLOR[:mw], markersize = 5)
+    ax2 = Axis(fig[1, 2]; xlabel = L"t\;\text{(whacking iteration)}", ylabel = "components",
+               title = "(b) size of the mixture", titlefont = :regular, titlesize = 8)
+    standard_axis!(ax2)
+    lines!(ax2, iters, ncomp; color = NU_COLOR[:mw], linewidth = 1.4)
+    scatter!(ax2, iters, ncomp; color = NU_COLOR[:mw], markersize = 5)
+    isempty(title) || Label(fig[0, 1:2], title; fontsize = 8.5, font = :regular, tellwidth = false)
+    colgap!(fig.layout, 16); rowgap!(fig.layout, 4)
+    return fig
+end
+
+# -----------------------------------------------------------------------------
 # One panel per mass ordering; the posterior probability of the upper octant is
 # printed inside each panel per sampler (the number the samplers are compared on).
-function fig_octant(cells; algs = (:mw, :mh, :ns), B = BTOP)
+function fig_octant(cells; algs = (:mw, :mh, :nuts, :ns), B = BTOP)
     rng = MersenneTwister(23)
     set_pub_theme!(class = :wide)
     W, H = figure_size(:wide, :viz_marginal)
@@ -354,8 +420,8 @@ function fig_octant(cells; algs = (:mw, :mh, :ns), B = BTOP)
         bands = published_bands(ordering)[:θ₂₃]
         # published intervals stacked above the curves; the P(upper octant)
         # table sits in a separate strip above them (no overlap with the bars)
-        bar_top = pub_overlay!(ax, [(l, convert_pub(pv, θ -> sin(θ)^2)) for (l, pv) in bands], ymax, 1.0; dy = 0.18)
-        top = 1.34bar_top
+        bar_top = pub_overlay!(ax, [(l, convert_pub(pv, θ -> sin(θ)^2)) for (l, pv) in bands], ymax, 1.0; dy = 0.46, values = true)
+        top = 1.4bar_top           # room for the P(upper octant) table above the labelled bars
         text!(ax, 0.255, 0.02top; text = "lower octant", fontsize = 7, align = (:left, :bottom), color = :gray30)
         text!(ax, 0.745, 0.02top; text = "upper octant", fontsize = 7, align = (:right, :bottom), color = :gray30)
         short = Dict(:mw => "MoleWhacker", :mh => "MH (reference)", :ns => "NS", :nuts => "NUTS", :is => "IS")
@@ -598,20 +664,23 @@ end
 fmt_B_short(B) = B == 5e4 ? "5×10⁴" : B == 5e5 ? "5×10⁵" : string(B)
 
 # -----------------------------------------------------------------------------
+# optional subset, e.g. --figs octant,iter (default: everything)
+const FIGSEL30 = let i = findfirst(==("--figs"), ARGS); i === nothing ? ["marginals", "corner", "nuisance", "iter", "profile", "octant", "agreement", "evidence"] : String.(split(ARGS[i+1], ",")) end
+
 function main()
     cells = load_cells()
     @info "cells" n = length(cells)
     for ord in (:NO, :IO)
-        f = fig_marginals(cells, ord); f === nothing || save_pdf(f, "nu_marginals_$(ord)"; dir = FIGS)
-        f = fig_corner(cells, ord); f === nothing || save_pdf(f, "nu_corner_$(ord)"; dir = FIGS)
-        f = fig_nuisance(cells, ord); f === nothing || save_pdf(f, "nu_nuisance_$(ord)"; dir = FIGS)
+        "marginals" in FIGSEL30 && (f = fig_marginals(cells, ord); f === nothing || save_pdf(f, "nu_marginals_$(ord)"; dir = FIGS))
+        "corner" in FIGSEL30 && (f = fig_corner(cells, ord); f === nothing || save_pdf(f, "nu_corner_$(ord)"; dir = FIGS))
+        "nuisance" in FIGSEL30 && (f = fig_nuisance(cells, ord); f === nothing || save_pdf(f, "nu_nuisance_$(ord)"; dir = FIGS))
         mw = [c for c in cells if c.ordering === ord && c.alg === :mw && c.B == BTOP && c.seed == 11]
-        isempty(mw) || save_pdf(fig_iter_mw(mw[1].mr), "nu_mw_iter_$(ord)"; dir = FIGS)
-        f = fig_profile(cells, ord, joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_profile_$(ord)"; dir = FIGS)
+        "iter" in FIGSEL30 && !isempty(mw) && save_pdf(fig_iter_mw_wide(mw[1].mr; title = "Daya Bay + KamLAND + MINOS, $(ord_word(ord)), B = $(fmt_B_short(BTOP)), seed 11"), "nu_mw_iter_$(ord)"; dir = FIGS)
+        "profile" in FIGSEL30 && (f = fig_profile(cells, ord, joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_profile_$(ord)"; dir = FIGS))
     end
-    f = fig_octant(cells); f === nothing || save_pdf(f, "nu_octant"; dir = FIGS)
-    f = fig_agreement(joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_agreement"; dir = FIGS)
-    f = fig_evidence(joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_evidence"; dir = FIGS)
+    "octant" in FIGSEL30 && (f = fig_octant(cells); f === nothing || save_pdf(f, "nu_octant"; dir = FIGS))
+    "agreement" in FIGSEL30 && (f = fig_agreement(joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_agreement"; dir = FIGS))
+    "evidence" in FIGSEL30 && (f = fig_evidence(joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_evidence"; dir = FIGS))
     println("PLOTS-DONE")
 end
 

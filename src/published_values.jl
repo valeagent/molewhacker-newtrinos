@@ -62,6 +62,8 @@ const NUFIT = (
     sin2_theta13_IO = PubValue(0.02231, 0.00056),
     sin2_theta23_IO = PubValue(0.550, 0.015, 0.012),
     dm32_IO = PubValue(-2.484e-3, 0.020e-3),
+    dcp_NO = PubValue(deg2rad(212.0), deg2rad(41.0), deg2rad(26.0)),   # 212 (+26 / -41) degrees, in radians
+    dcp_IO = PubValue(deg2rad(274.0), deg2rad(25.0), deg2rad(22.0)),   # 274 (+22 / -25) degrees
 )
 
 # --- IceCube DeepCore, 2011–2019 sample ("9 y verification sample") ----------
@@ -110,6 +112,7 @@ function published_bands(ordering::Symbol; deepcore::Bool = false)
     b[:θ₂₃] = [("MINOS+", convert_pub(ordering === :NO ? MINOS.sin2_theta23_NO : MINOS.sin2_theta23_IO, theta_from_sin2)),
                ("NuFIT 6.0", convert_pub(ordering === :NO ? NUFIT.sin2_theta23_NO : NUFIT.sin2_theta23_IO, theta_from_sin2))]
     b[:Δm²₂₁] = [("KamLAND", KAMLAND.dm21), ("NuFIT 6.0", NUFIT.dm21)]
+    b[:δCP] = [("NuFIT 6.0", ordering === :NO ? NUFIT.dcp_NO : NUFIT.dcp_IO)]   # the global fit's hint, not a measurement of these data
     if ordering === :NO
         b[:Δm²₃₁] = [("Daya Bay", dm31_from_dm32(DAYABAY.dm32_NO)),
                      ("MINOS+", dm31_from_dm32(MINOS.dm32_NO)),
