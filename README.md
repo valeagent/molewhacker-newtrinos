@@ -40,9 +40,9 @@ The per-cell sample files (`result.h5`: samples, weights, diagnostics,
 MoleWhacker iteration logs and stored mixtures; 7.7 GB in total) are not in
 git. They are archived with the thesis data on Zenodo:
 
-> **Zenodo record:** `10.5281/zenodo.XXXXXXXX` (DOI to be inserted after
-> publication; see `docs/ZENODO.md` for the archive layout and how to unpack
-> it into this repository)
+> **Zenodo record:** [10.5281/zenodo.22879546](https://doi.org/10.5281/zenodo.22879546)
+> (see `docs/ZENODO.md` for the archive layout and how to unpack it into this
+> repository)
 
 With the archives unpacked (`out/runs/`, `out_ablation/runs/`,
 `out_extension/`, `out_extension_nseed8/`), every table and figure

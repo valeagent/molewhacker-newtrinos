@@ -4,19 +4,21 @@
 # benchmark archive 10.5281/zenodo.22228405), plus SHA256SUMS.txt and the
 # DATA-README.md of this directory.
 #
-#   powershell -ExecutionPolicy Bypass -File ops\zenodo\build_package.ps1 [-PackageDir <dir>] [-SkipTar]
+#   powershell -ExecutionPolicy Bypass -File ops\zenodo\build_package.ps1 [-PackageDir <dir>] [-SkipTar] [-PartSize <bytes>]
 #
 # PackageDir defaults to a sibling of the repository so that the 7.7 GB never
 # enter git; -SkipTar re-splits and re-checksums existing archives. Takes a few
 # minutes (I/O bound).
 param(
     [string]$PackageDir = (Join-Path (Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $PSScriptRoot))) 'zenodo_package_neutrino'),
-    [switch]$SkipTar
+    [switch]$SkipTar,
+    [long]$PartSize = 1GB
 )
 $ErrorActionPreference = 'Stop'
 $REPO = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)   # ops/zenodo -> repository root
 $Z = $PackageDir
-$PART = 2GB
+$PART = [long]$PartSize
+if ($PART -lt 64MB) { throw "PartSize must be at least 64 MiB (got $PART)" }
 New-Item -ItemType Directory -Force -Path $Z | Out-Null
 
 function Make-Tar([string]$name, [string[]]$paths) {
@@ -46,7 +48,7 @@ function Split-Archive([string]$name) {
             $outp.Close(); $parts += $pname; $i++
         }
     } finally { $in.Close() }
-    Write-Host "  $name split into $($parts.Count) parts of <= 2 GiB"
+    Write-Host "  $name split into $($parts.Count) parts of <= $($PART / 1MB) MiB"
     return $parts
 }
 

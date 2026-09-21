@@ -9,6 +9,10 @@ authors:
     affiliation: "Technical University of Munich, Department of Physics"
 license: MIT
 repository-code: "https://github.com/valeagent/molewhacker-newtrinos"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.22879546
+    description: "Zenodo archive of the raw run output (samples, weights, iteration logs, stored mixtures)"
 abstract: >-
   Application of the MoleWhacker adaptive importance sampler to a real
   physics likelihood: a joint three-flavor fit of the neutrino-oscillation
