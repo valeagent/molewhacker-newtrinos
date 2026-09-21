@@ -4,7 +4,7 @@ The per-cell sample files of the campaign (`result.h5`, 7.9 GB in total) are
 excluded from git (`.gitignore`) and archived on Zenodo, as the benchmark
 data of the thesis are (`10.5281/zenodo.22228405`).
 
-**Record:** [10.5281/zenodo.22879546](https://doi.org/10.5281/zenodo.22879546) (DOI reserved 21 Sep 2026; resolves once the record is published)
+**Record:** [10.5281/zenodo.22879546](https://doi.org/10.5281/zenodo.22879546) (published 21 Sep 2026; the concept DOI for all versions is [10.5281/zenodo.22879545](https://doi.org/10.5281/zenodo.22879545))
 
 ## Layout of the archive
 
