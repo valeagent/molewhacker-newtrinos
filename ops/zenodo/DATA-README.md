@@ -26,7 +26,7 @@ https://doi.org/10.5281/zenodo.22228405
 | `molewhacker-newtrinos-logs.tar` | stdout/stderr of every lane of the campaign (MoleWhacker iteration lines, wall-clock stamps) | `out/logs/` |
 | `SHA256SUMS.txt` | checksums of the archives, of the twenty parts, and of the reassembled `molewhacker-newtrinos-ablation.tar` | - |
 
-Total: about 7.7 GB. All HDF5 files were written by HDF5.jl; the layout of
+Total: 7.9 GB (7.4 GiB). All HDF5 files were written by HDF5.jl; the layout of
 `result.h5` is documented in the harness (`harness/experiments/src/` of the
 companion repository, `save_method_result` / `load_method_result`).
 

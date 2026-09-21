@@ -15,7 +15,7 @@
 # survive between two cuts. Concatenation in name order restores the archive
 # whatever the part sizes.)
 #
-# PackageDir defaults to a sibling of the repository so that the 7.7 GB never
+# PackageDir defaults to a sibling of the repository so that the 7.9 GB never
 # enter git; -SkipTar re-splits and re-checksums existing archives. Takes a few
 # minutes (I/O bound).
 param(

@@ -37,7 +37,7 @@ is modified by anything here.
 ## Data archive
 
 The per-cell sample files (`result.h5`: samples, weights, diagnostics,
-MoleWhacker iteration logs and stored mixtures; 7.7 GB in total) are not in
+MoleWhacker iteration logs and stored mixtures; 7.9 GB in total) are not in
 git. They are archived with the thesis data on Zenodo:
 
 > **Zenodo record:** [10.5281/zenodo.22879546](https://doi.org/10.5281/zenodo.22879546)

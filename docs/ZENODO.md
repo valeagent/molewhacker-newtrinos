@@ -1,6 +1,6 @@
 # The data archive on Zenodo
 
-The per-cell sample files of the campaign (`result.h5`, 7.7 GB in total) are
+The per-cell sample files of the campaign (`result.h5`, 7.9 GB in total) are
 excluded from git (`.gitignore`) and archived on Zenodo, as the benchmark
 data of the thesis are (`10.5281/zenodo.22228405`).
 
