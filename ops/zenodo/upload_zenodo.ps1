@@ -19,8 +19,10 @@
 #     can be re-run after any interruption and continues where it stopped;
 #   * network errors, Zenodo 5xx responses and stalls (< 512 B/s for 5 min)
 #     are retried with a growing pause (30 s ... 10 min), up to -MaxAttempts
-#     per file; a failed PUT only costs that one file (the archives are split
-#     into 1 GiB parts by build_package.ps1 for exactly this reason);
+#     per file; a failed PUT only costs that one file (the archive is split
+#     into small parts by build_package.ps1 for exactly this reason: Zenodo's
+#     gateway returned 502 every few minutes on 21 Sep 2026); a 5xx cut is
+#     retried after a flat 30 s, network errors with a growing pause;
 #   * between files the script honours two control files in the package dir:
 #     `ratelimit.txt` (a curl rate such as 800k or 2m; read before every PUT,
 #     so the cap can be changed without restarting) and `pause.txt` (while it
@@ -124,7 +126,7 @@ if ($SetMetadata) {
 <p><b>Contents</b> (7.7 GB; every cell holds <code>result.h5</code> with samples, weights, log-densities and diagnostics, for MoleWhacker the iteration log and the stored final mixture, plus <code>metadata.json</code> and <code>summary.json</code>):</p>
 <ul>
 <li><code>molewhacker-newtrinos-runs.tar</code> (755 MB): the 74 cells of the three-experiment campaign (50 protocol cells: five samplers at 5e4 and 5e5 evaluations, seeds 11/23/41, both orderings, nested sampling to evidence convergence; 24 single-experiment and pairwise MoleWhacker cells of the subset study) &rarr; <code>out/runs/</code></li>
-<li><code>molewhacker-newtrinos-ablation.tar.part-00</code> ... <code>part-06</code> (6.5 GB, seven parts of at most 1 GiB; concatenate in name order): the six MoleWhacker cells with the iteration cap lifted, with the complete per-iteration population and mixture history &rarr; <code>out_ablation/runs/</code></li>
+<li><code>molewhacker-newtrinos-ablation.tar.part-00</code> ... <code>part-19</code> (6.5 GB, twenty parts: two of 1 GiB, then 256 MiB pieces; concatenate in name order): the six MoleWhacker cells with the iteration cap lifted, with the complete per-iteration population and mixture history &rarr; <code>out_ablation/runs/</code></li>
 <li><code>molewhacker-newtrinos-extension.tar</code> (249 MB): the DeepCore extension (protocol MoleWhacker cell with 30 seeds, two MH chains of 2.5e5 steps, MoleWhacker with n_seed = 8 for seeds 11/23/41, the fresh draws from every stored d = 24 mixture, and the metadata of the cells stopped or lost to the out-of-memory event of 15 Sep 2026) &rarr; <code>out_extension/</code>, <code>out_extension_nseed8/</code></li>
 <li><code>molewhacker-newtrinos-logs.tar</code> (26 MB): stdout/stderr of every lane of the campaign &rarr; <code>out/logs/</code></li>
 <li><code>DATA-README.md</code>, <code>SHA256SUMS.txt</code>: description, reassembly and unpacking instructions, checksums of the archives, the parts and the reassembled ablation archive.</li>
@@ -205,7 +207,8 @@ function Ensure-Uploaded([string]$f) {
         $parts = ("$w" -split '\s+')
         $code = $parts[0]; $spd = if ($parts.Count -gt 1) { [double]$parts[1] } else { 0 }; $sec = if ($parts.Count -gt 2) { [double]$parts[2] } else { 0 }; $sent = if ($parts.Count -gt 3) { [double]$parts[3] } else { 0 }
         if ($exit -ne 0 -or $code -notmatch '^2\d\d$') {
-            $wait = [Math]::Min(600, 30 * [Math]::Pow(2, [Math]::Min($attempt - 1, 4)))
+            # a gateway cut (5xx) is random in time: retry after a flat 30 s; network errors back off up to 5 min
+            $wait = if ($exit -eq 0 -and $code -match '^5\d\d$') { 30 } else { [Math]::Min(300, 30 * [Math]::Pow(2, [Math]::Min($attempt - 1, 3))) }
             Log "  put $f FAILED after $([Math]::Round($sec)) s ($([Math]::Round($sent / 1MB, 1)) MB sent): curl exit $exit, HTTP $code $errtxt; retry in $wait s"
             Start-Sleep -Seconds $wait
             continue

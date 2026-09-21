@@ -21,10 +21,10 @@ https://doi.org/10.5281/zenodo.22228405
 | File | Contents | Unpacks into |
 |---|---|---|
 | `molewhacker-newtrinos-runs.tar` | three-experiment campaign, 74 cells: the 50 protocol cells `nu_dakami_<NO|IO>_<alg>_d11_B<budget>_seed<seed>/` (MoleWhacker, MH, NUTS, NS, IS at 5e4 and 5e5 evaluations, seeds 11/23/41; `B4e+06` = nested sampling run to evidence convergence) and the 24 single-experiment and pairwise MoleWhacker cells (`nu_da`, `nu_ka`, `nu_mi`, `nu_daka`, `nu_dami`, `nu_kami`) of the subset study; each cell holds `result.h5` (samples, weights, log-densities, diagnostics; for MoleWhacker the iteration log and the stored final mixture), `metadata.json` and `summary.json` | `out/runs/` |
-| `molewhacker-newtrinos-ablation.tar.part-00` ... `part-06` | split archive (seven parts of at most 1 GiB) (reassemble first, see below): the six MoleWhacker cells with the iteration cap lifted (`--tmax 100000`, 5e5 evaluations, seeds 11/23/41, both orderings), with the complete per-iteration population and mixture history (about 1 GB per cell) | `out_ablation/runs/` |
+| `molewhacker-newtrinos-ablation.tar.part-00` ... `part-19` | split archive (twenty parts: `part-00` and `part-01` of 1 GiB, `part-02` to `part-19` of at most 256 MiB; reassemble first, see below): the six MoleWhacker cells with the iteration cap lifted (`--tmax 100000`, 5e5 evaluations, seeds 11/23/41, both orderings), with the complete per-iteration population and mixture history (about 1 GB per cell) | `out_ablation/runs/` |
 | `molewhacker-newtrinos-extension.tar` | DeepCore extension: `out_extension/runs/` (protocol MoleWhacker cell with 30 seeds; MH chains seeds 11 and 23, 2.5e5 steps each), `out_extension_nseed8/runs/` (MoleWhacker with `n_seed = 8`, seeds 11/23/41; copies of the two MH chains as the analysis scripts expect them), `out_extension_nseed8/fresh/` (the fresh draws from every stored d = 24 mixture with their posterior weights, JLD2), and the metadata of the cells stopped or lost to the out-of-memory event of 15 Sep 2026 (`_stopped_*`, `_oom_*`) | `out_extension/`, `out_extension_nseed8/` |
 | `molewhacker-newtrinos-logs.tar` | stdout/stderr of every lane of the campaign (MoleWhacker iteration lines, wall-clock stamps) | `out/logs/` |
-| `SHA256SUMS.txt` | checksums of the archives, of the seven parts, and of the reassembled `molewhacker-newtrinos-ablation.tar` | - |
+| `SHA256SUMS.txt` | checksums of the archives, of the twenty parts, and of the reassembled `molewhacker-newtrinos-ablation.tar` | - |
 
 Total: about 7.7 GB. All HDF5 files were written by HDF5.jl; the layout of
 `result.h5` is documented in the harness (`harness/experiments/src/` of the
@@ -40,7 +40,7 @@ sha256sum -c SHA256SUMS.txt --ignore-missing
 
 ```bat
 :: Windows (cmd)
-copy /b molewhacker-newtrinos-ablation.tar.part-00+molewhacker-newtrinos-ablation.tar.part-01+molewhacker-newtrinos-ablation.tar.part-02+molewhacker-newtrinos-ablation.tar.part-03+molewhacker-newtrinos-ablation.tar.part-04+molewhacker-newtrinos-ablation.tar.part-05+molewhacker-newtrinos-ablation.tar.part-06 molewhacker-newtrinos-ablation.tar
+copy /b molewhacker-newtrinos-ablation.tar.part-00+molewhacker-newtrinos-ablation.tar.part-01+molewhacker-newtrinos-ablation.tar.part-02+molewhacker-newtrinos-ablation.tar.part-03+molewhacker-newtrinos-ablation.tar.part-04+molewhacker-newtrinos-ablation.tar.part-05+molewhacker-newtrinos-ablation.tar.part-06+molewhacker-newtrinos-ablation.tar.part-07+molewhacker-newtrinos-ablation.tar.part-08+molewhacker-newtrinos-ablation.tar.part-09+molewhacker-newtrinos-ablation.tar.part-10+molewhacker-newtrinos-ablation.tar.part-11+molewhacker-newtrinos-ablation.tar.part-12+molewhacker-newtrinos-ablation.tar.part-13+molewhacker-newtrinos-ablation.tar.part-14+molewhacker-newtrinos-ablation.tar.part-15+molewhacker-newtrinos-ablation.tar.part-16+molewhacker-newtrinos-ablation.tar.part-17+molewhacker-newtrinos-ablation.tar.part-18+molewhacker-newtrinos-ablation.tar.part-19 molewhacker-newtrinos-ablation.tar
 ```
 
 ## Usage
