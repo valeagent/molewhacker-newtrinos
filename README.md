@@ -105,7 +105,7 @@ julia --project=. -t 4 scripts\02_smoke_samplers.jl       # all five samplers on
 | `85_extension_analysis.ps1` | runs 81-84 in order | |
 | `86_deepcore_p1_check.jl` | quantifies the p1 slope-table slip of the pinned DeepCore module | |
 | `90_export_thesis.ps1` | copies the chapter PDFs into the thesis `figures/` directory under the thesis filename convention | |
-| `95_status.ps1`, `96_pause_resume.ps1` | live status of running cells; OS-level suspend/resume of the julia processes | |
+| `96_pause_resume.ps1` | OS-level suspend/resume of the julia processes of a running campaign | |
 
 A cell is finished when its `summary.json` exists (written last); a cell
 whose `result.h5` exists is skipped (`--force` overrides). Nested sampling

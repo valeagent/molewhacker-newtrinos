@@ -288,7 +288,7 @@ cells exist. Tables: `neutrino/out/tables/tab_nu_*.tex`.
   algorithm applied to a concrete physical problem with physical results,
   (b) a written thesis motivated and structured by the physics rather than
   the algorithm. Six to eight weeks of full effort would make a solid physics
-  thesis "gut möglich". No email is being written now; the user is studying
+  thesis "gut möglich". No email is being written now; Valentin is studying
   the physics first.
 * **`neutrino/PHYSICS-PRIMER.md` rewritten as a study edition** (≈1090
   lines): how-to-use guide; Part 0 one-page map; Part 1 with Standard-Model
@@ -322,7 +322,7 @@ cells exist. Tables: `neutrino/out/tables/tab_nu_*.tex`.
   `summary.json` (≈49 cells + 2 nsref expected), run `20_aggregate.jl` →
   `30_plots.jl` → `40_tables.jl`, look at the nsref band in `nu_evidence`,
   then update `CHAPTER-DRAFT.md` and discuss the primer's Part 4.7/4.8
-  (limitations, options, thesis skeleton, extension) with the user.
+  (limitations, options, thesis skeleton, extension) with Valentin.
 
 ## 13. Status 2026-09-12, 13:00 — campaign complete; the evidence arbitration
 
@@ -372,7 +372,7 @@ cells exist. Tables: `neutrino/out/tables/tab_nu_*.tex`.
   (abstract numbers, W₁ finite-sample wording, KL-vs-iteration plot idea,
   FAILED-SANITY mention, Fig. 8.7 panel A, eggbox triangle plots of the
   better method): not acted on — thesis edits remain off until agreed.
-* **Next:** discuss 4.6b with the user; then the cheap additions of primer
+* **Next:** discuss 4.6b with Valentin; then the cheap additions of primer
   4.8 (single-experiment fits, posterior-predictive bands, prior-sensitivity
   check, ordering-preference decomposition) if wanted.
 
@@ -774,7 +774,7 @@ Actions (approved 21:21): (1) the uncapped d = 24 run is cancelled
 34184, `out_extension/mh_standalone.ps1`) with `--force`; an empty placeholder
 `result.h5` in its cell directory makes lane 1 skip its own MH line (lane 1 will
 exit after MW s11). Memory after the start: 0.9 GB available, commit 36.8 of
-41.5 GB — tight; Chrome/ChatGPT/AnyDesk (2.7 GB) are still open. Revised ETAs:
+41.5 GB — tight; several desktop applications (2.7 GB) are still open. Revised ETAs:
 MW s11 Tue 08:00–16:00; MW s23 Tue 14:00–22:00; MH s11 Wed 04:00–10:00; MW s41
 Thu 00:00–08:00. Analysis of the extension starts when MH lands (Wed), the third
 MW seed is folded in Thu. Status script updated accordingly.
@@ -861,8 +861,8 @@ s11 (after iteration 15, 355 367 units, 12.0 h) and MW n_seed = 8 s41 (first
 Hessian batch of the loop, 286 166 units, 9.7 h). Cause: system-wide commit
 exhaustion (limit 47 GB = 15.5 GB RAM + 32 GB system-managed pagefile, already
 at its maximum). Baseline at the time ~27 GB (two MW processes ~5 GB private
-each, MH 1.5, Cursor 3, Chrome 2.7, msedgewebview2 2.0, ChatGPT 1.7, Wispr Flow
-0.9, Slack 0.7, Claude 0.6, Perplexity 0.6, AnyDesk 0.5, system ~2); the nested
+each, MH 1.5, desktop applications (editor, browsers, messaging, remote
+desktop) ~13, system ~2); the nested
 ForwardDiff Hessians of the DeepCore likelihood (chunk 12 x 12 duals, large
 tables) are transient memory spikes of several GB per thread, and both MW
 processes were in their Hessian phase (s41 iteration 0 -> 1, s11 iteration
@@ -891,16 +891,16 @@ MW processes are never in their Hessian phase simultaneously:
 * `mem_watchdog.ps1`: polls the commit charge every 5 s, kills the julia
   process with the largest private memory above 44 GB, reports every 30 min
   to `chain_extension.progress`.
-* Valentin asked to keep Chrome/ChatGPT/Slack/Perplexity/Wispr/Claude/AnyDesk
+* Valentin asked to keep the desktop applications
   closed (~10 GB of commit) until Wednesday.
 Chapter: protocol paragraph now describes the two-seed MH reference; todo box
 records the OOM and the s11 trajectory. Analysis scripts (82/83) must select
 the MH cells by the maximum MH budget in the root (B = 250000, not BTOP) - to
 do before the Wednesday analysis.
 
-### 17.9 Status 2026-09-15, 10:55 - pause/resume for the user; disk check
+### 17.9 Status 2026-09-15, 10:55 - pause/resume; disk check
 
-Valentin needs Chrome + AnyDesk for about an hour (15-16 h). Added
+Valentin needs the browser and remote desktop for about an hour (15-16 h). Added
 `scripts/96_pause_resume.ps1` (+ `pause.cmd` / `resume.cmd`): suspends the
 MoleWhacker julia processes via `NtSuspendProcess` (MH keeps running; `-All`
 includes MH), resumes via `NtResumeProcess`; MH pids in `out_extension/mh_pids.txt`.
@@ -1065,7 +1065,7 @@ no oscillation 0.38 at L/E = 400-700 km/GeV, cascade-like 0.60.
 Thesis (branch neutrino-chapter): paragraphs "The data and the fit" and
 "Joint structure", the octant figure in "The octant", appendix D: the
 atmospheric triangle plot and listing lst:nu-ext-ppd. Terminology rule table
-in `.cursor/rules/01-writing-style.mdc`; applied thesis-wide: triangle plot
+in the thesis style rules; applied thesis-wide: triangle plot
 (not corner), initialization phase (not seed phase), initial mixture (not seed
 mixture), accumulated population / population estimator (not pooled cloud /
 cloud), MH reference (not chain reference); glossary entries added.

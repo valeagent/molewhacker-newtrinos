@@ -92,12 +92,12 @@ function Show-Status {
     Write-Host "  lane 1  = MW n_seed = 8 s11 (since 14:02) SUSPENDED since 21:22 (four processes paged the RAM to death: MH fell to 30 %); resumes when s23 exits -> ~Wed 14:00-16:00;" -ForegroundColor DarkGray
     Write-Host "  lane 3  = MW n_seed = 8 s41 starts when s23 AND both MH chains have exited (max. 3 julia processes = no paging) -> ~Wed 18:00-20:00;" -ForegroundColor DarkGray
     Write-Host "  watchdog = ops\extension\mem_watchdog.ps1 kills the MoleWhacker lane with the least CPU time if the commit charge exceeds 44 GB." -ForegroundColor DarkGray
-    Write-Host "PLEASE keep Chrome, ChatGPT, Slack, Perplexity, Wispr Flow, Claude, AnyDesk closed (about 10 GB of commit) until Wed morning." -ForegroundColor Yellow
+    Write-Host "PLEASE keep memory-heavy desktop applications closed (about 10 GB of commit) until Wed morning." -ForegroundColor Yellow
     Write-Host "Need the laptop for an hour? Double-click pause.cmd (suspends the MoleWhacker cells at OS level, nothing is lost, MH keeps running)," -ForegroundColor Yellow
     Write-Host "open what you need, and double-click resume.cmd when done. Each paused hour shifts the MW ETAs by one hour." -ForegroundColor Yellow
     Write-Host "Budget arithmetic for n_seed = 8: seeds 8 x 27 800 = 222 000 units (45 %), loop ~8 700 per iteration -> T_max = 20 reachable (s11 reached" -ForegroundColor DarkGray
     Write-Host "iteration 15 with 355 000 units before the OOM). MH ~Wed 03:00-04:00; analysis with two MW seeds Wed afternoon, refreshed with s41 when it lands." -ForegroundColor DarkGray
-    Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: tell the agent." -ForegroundColor DarkGray
+    Write-Host "A julia line in RED (IDLE?) for more than a few minutes means a hung lane: check its log and restart it." -ForegroundColor DarkGray
     Write-Host "Extension is normal ordering only (the DeepCore module supports NO only; see queues\ext_deepcore_IO.txt)." -ForegroundColor DarkGray
     Write-Host "Logs: the ext_deepcore_* logs stay EMPTY until a lane's julia process exits (PowerShell redirect buffers a few KB and these cells write" -ForegroundColor DarkGray
     Write-Host "only ~25 lines); no per-iteration progress is visible for the d = 24 cells. 'busy' above and a growing cpu column are the signs of life;" -ForegroundColor DarkGray
