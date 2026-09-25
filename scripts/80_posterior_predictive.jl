@@ -75,10 +75,13 @@ function fig_intro()
               title = "(a) three-flavor vacuum oscillations", titlefont = :regular, titlesize = 8.5,
               xticks = LogTicks(1:5))
     standard_axis!(ax)
-    # experiment windows: (L_min/E_max, L_max/E_min)
-    vspan!(ax, [735 / 20], [735 / 0.5]; color = (EXP_COLOR["MINOS"], 0.13))
-    vspan!(ax, [1.5 / 0.008], [1.9 / 0.0018]; color = (EXP_COLOR["Daya Bay"], 0.16))
-    vspan!(ax, [86 / 0.008], [829 / 0.0018]; color = (EXP_COLOR["KamLAND"], 0.13))
+    # experiment windows (L_min/E_max, L_max/E_min) of the fitted spectra, in neutrino
+    # energy: MINOS reconstructed-energy bins 1-40 GeV (the 0-1 GeV bin would reach
+    # infinite L/E); Daya Bay prompt 0.7-12 MeV and KamLAND prompt 0.9-8.1 MeV, both
+    # shifted by +0.78 MeV to neutrino energy; baselines EH3 1.5-1.9 km, reactors 86-829 km.
+    vspan!(ax, [735 / 40], [735 / 1]; color = (EXP_COLOR["MINOS"], 0.13))
+    vspan!(ax, [1.5 / 0.0128], [1.9 / 0.0015]; color = (EXP_COLOR["Daya Bay"], 0.16))
+    vspan!(ax, [86 / 0.0089], [829 / 0.0017]; color = (EXP_COLOR["KamLAND"], 0.13))
     # short legend labels so that the legend fits under the flat part of the
     # curves (L/E < 200 km/GeV, where both probabilities are still above 0.5);
     # the y label already says "survival probability"
@@ -87,9 +90,9 @@ function fig_intro()
     lines!(ax, x1, Pμ1; color = :gray50, linewidth = 1.2, linestyle = :dash, label = L"\nu_\mu\ \text{(beam)}")
     vlines!(ax, [xcut]; color = :gray70, linewidth = 0.5, linestyle = :dot)
     # experiment labels in three rows above the curves (the bands overlap in L/E)
-    text!(ax, 233, 1.34; text = "MINOS: 735 km, 0.5–20 GeV", fontsize = 6.5, align = (:center, :center), color = EXP_COLOR["MINOS"])
-    text!(ax, 448, 1.23; text = "Daya Bay: 1.5–1.9 km, 1.8–8 MeV", fontsize = 6.5, align = (:center, :center), color = EXP_COLOR["Daya Bay"])
-    text!(ax, 10^5.45, 1.12; text = "KamLAND: ~180 km, 1.8–8 MeV", fontsize = 6.5, align = (:right, :center), color = EXP_COLOR["KamLAND"])
+    text!(ax, 11.5, 1.34; text = "MINOS: 735 km, 1–40 GeV", fontsize = 6.5, align = (:left, :center), color = EXP_COLOR["MINOS"])
+    text!(ax, 11.5, 1.23; text = "Daya Bay: 1.5–1.9 km, 1.5–12.8 MeV", fontsize = 6.5, align = (:left, :center), color = EXP_COLOR["Daya Bay"])
+    text!(ax, 10^5.45, 1.12; text = "KamLAND: ~180 km, 1.7–8.9 MeV", fontsize = 6.5, align = (:right, :center), color = EXP_COLOR["KamLAND"])
     text!(ax, 3300, 0.02; text = "Δm²₃₁ term averaged →", fontsize = 6, align = (:left, :bottom), color = :gray50)
     axislegend(ax; position = :lb, framevisible = false, labelsize = 7, padding = (2, 2, 2, 2), rowgap = 0,
                patchsize = (12, 6), patchlabelgap = 3)
