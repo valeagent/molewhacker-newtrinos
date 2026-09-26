@@ -487,7 +487,7 @@ function main_ext()
     mw = [c for c in cells4 if c.ordering === :NO && c.alg === :mw && c.B == BTOP && c.seed == 11]
     if !isempty(mw)
         try
-            save_pdf(fig_iter_mw_wide(mw[1].mr; title = "Four experiments (with IceCube DeepCore), normal ordering, B = $(fmt_B_short(BTOP)), n_seed = 8, seed 11"), "nu_ext_iter_NO"; dir = FIGS)
+            save_pdf(fig_iter_mw_wide(mw[1].mr; title = "Four experiments, normal ordering, B = $(fmt_B_short(BTOP))\nn_seed = 8, seed 11"), "nu_ext_iter_NO"; dir = FIGS)
         catch err
             @warn "iteration-log figure skipped" exception = err
         end
