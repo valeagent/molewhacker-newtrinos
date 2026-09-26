@@ -158,7 +158,9 @@ function fig_ext_data(cells4)
     text!(axCr, -0.98, 0.43; text = "upgoing", fontsize = 6.5, align = (:left, :bottom), color = :gray30)
     text!(axCr, 0.08, 0.43; text = "horizon", fontsize = 6.5, align = (:right, :bottom), color = :gray30)
     # (c) ratio to no oscillation against L/E, both PID bins
-    titles = Dict(2 => "track-like, all bins", 1 => "cascade-like, all bins")
+    # PID 0.55-0.75 is the collaboration's mixed channel (about 70 % nu_mu CC), not a
+    # cascade-like sample; label corrected 2026-09-26 (thesis review C6).
+    titles = Dict(2 => "track-like, all bins", 1 => "mixed PID bin, all bins")
     for (row, p) in ((1, 2), (2, 1))
         ax = Axis(fig[row, 3]; title = titles[p], titlefont = :regular, titlesize = 8, xscale = log10,
                   xlabel = row == 2 ? "L / E  [km / GeV]" : "", xlabelsize = 8.5, ylabel = "ratio to no osc.", ylabelsize = 8,
