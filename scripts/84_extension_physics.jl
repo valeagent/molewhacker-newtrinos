@@ -48,21 +48,36 @@ end
 "Path length through the atmosphere and the Earth for a zenith angle with cosine c (km)."
 baseline_km(c) = -R_EARTH * c + sqrt(R_EARTH^2 * c^2 + 2R_EARTH * H_PROD + H_PROD^2)
 
-"Fresh draws of every n_seed = 8 cell, resampled to equal weight (n per cell), and the summed fresh ESS."
+"""
+Fresh draws of every n_seed = 8 cell, resampled to equal weight (n per cell) and
+concatenated: the pooled sample is the equal-weight average of the J separately
+self-normalized fresh-draw estimates (one per final mixture). Returns the pooled
+draws, the parameter names, the combined Kish diagnostic of that equal-weight
+mixture, and the per-batch P(upper octant). With E_j = (Σ w)² / Σ w² the Kish
+size of batch j, the pooled weights w_ji / J have the Kish size
+J² / Σ_j (1/E_j), which is what is returned; it is a weight-concentration
+diagnostic that feeds only the KDE bandwidth of the octant figure, not a
+statement of posterior precision. Until 26 Sep 2026 the sum Σ_j E_j was
+returned instead (473 against 416 for the archived pools); the RNG stream, the
+retained points and the pooling are unchanged by that correction.
+"""
 function fresh_pool(n_per_cell; rng = MersenneTwister(77))
     isdir(FRESHDIR) || return nothing, nothing, 0.0, Float64[]
-    parts = Matrix{Float64}[]; names = String[]; ess = 0.0; pups = Float64[]
+    parts = Matrix{Float64}[]; names = String[]; ess_batches = Float64[]; pups = Float64[]
     for f in sort(readdir(FRESHDIR))
         (endswith(f, ".jld2") && startswith(f, "nseed8__") && occursin("_mw_d24_B5e5_", f)) || continue
         d = JLD2.load(joinpath(FRESHDIR, f))
         d["kind"] == "nseed8" || continue
         Θ = d["theta"]; w = d["weights"]; names = d["names"]
         push!(parts, resample_to_equal_weight(Θ, w, n_per_cell; rng = rng))
-        ess += sum(w)^2 / sum(w .^ 2)
+        push!(ess_batches, sum(w)^2 / sum(w .^ 2))
         k23 = findfirst(==("θ₂₃"), names)
         push!(pups, sum(w .* (sin.(Θ[k23, :]) .^ 2 .> 0.5)) / sum(w))
     end
     isempty(parts) && return nothing, nothing, 0.0, Float64[]
+    J = length(ess_batches)
+    ess = J^2 / sum(1 ./ ess_batches)          # combined Kish size of the equal-weight mixture
+    @info "fresh pool" n_batches = J per_batch_kish = ess_batches combined_kish = ess sum_of_batches = sum(ess_batches)
     return hcat(parts...), Symbol.(names), ess, pups
 end
 
@@ -332,7 +347,10 @@ function main_phys()
     end
     atm = [:θ₂₃, :Δm²₃₁, :deepcore_aeff_scale, :atm_flux_delta_spectral_index, :deepcore_opt_eff_overall, :deepcore_atm_muon_scale]
     if "triatm" in FIGSEL
-        f = fig_ext_tri(cells4, atm; headline = "Four experiments, normal ordering, B = $(fmt_B_short(BTOP)): atmospheric sector and correlated DeepCore nuisance parameters\n" *
+        # headline wrapped into three short lines (26 Sep 2026): the former one-line
+        # headline was wider than the figure and clipped at "nuisance paramete..."
+        f = fig_ext_tri(cells4, atm; headline = "Four experiments, normal ordering, B = $(fmt_B_short(BTOP)):\n" *
+            "atmospheric sector and correlated DeepCore nuisance parameters\n" *
             "(θ₂₃ in rad, Δm²₃₁ in 10⁻³ eV²; 3×10⁴ draws per sampler, seeds pooled)")
         f === nothing || save_pdf(f, "nu_ext_tri_atm_NO"; dir = FIGS)
     end

@@ -483,8 +483,15 @@ function fig_nuisance(cells, ordering; algs = (:mw, :mh), B = BTOP)
 end
 
 # -----------------------------------------------------------------------------
-# Bayesian marginal (MW, pooled) vs profile likelihood ratio (Newtrinos LBFGS
-# profile, 50_profile.jl), both normalized to their peak.
+# Bayesian marginal (MW, pooled) vs. the conditional posterior-mode diagnostic
+# exp(-D/2) of the Newtrinos scan (50_profile.jl), both normalized to their peak.
+# At every grid point the scan maximizes the posterior density (likelihood times
+# the Newtrinos priors, PosteriorMeasure + bat_findmode/L-BFGS) locally over all
+# other parameters; D(x) = 2 [max_x log p(x, nu_hat_x | y) - log p(x, nu_hat_x | y)]
+# is the saved `dchi2_post` column. The saved `dchi2` column (bare likelihood at
+# the same conditional posterior modes) is neither a bare-likelihood profile nor
+# the penalized profile and is no longer plotted (correction of 26 Sep 2026,
+# PH-V5-01; the archived CSVs are unchanged).
 function fig_profile(cells, ordering, tables_dir; B = BTOP)
     p23 = joinpath(tables_dir, "profile_$(ordering)_th23.csv")
     p31 = joinpath(tables_dir, "profile_$(ordering)_dm31.csv")
@@ -507,22 +514,22 @@ function fig_profile(cells, ordering, tables_dir; B = BTOP)
         kd = kde(x; boundary = (lo, hi), npoints = 512, bandwidth = bw_silverman(x, ne))
         lines!(ax, kd.x, kd.density ./ maximum(kd.density); color = NU_COLOR[:mw], linewidth = NU_LW[:mw],
                label = "Bayesian marginal posterior (MoleWhacker)")
-        ok = isfinite.(df.dchi2)
+        ok = isfinite.(df.dchi2_post)
         xp = f.(df.value[ok]) .* sc
-        yp = exp.(-0.5 .* df.dchi2[ok])
+        yp = exp.(-0.5 .* df.dchi2_post[ok])
         ord = sortperm(xp)
         lines!(ax, xp[ord], yp[ord]; color = :gray30, linewidth = 1.1, linestyle = :dash,
-               label = "profile likelihood ratio exp(−Δχ²/2)")
+               label = "conditional posterior-mode diagnostic exp(−D/2)")
         scatter!(ax, xp, yp; color = :gray30, markersize = 3.5)
         hlines!(ax, [exp(-0.5)]; color = (:gray50, 0.8), linewidth = 0.7, linestyle = :dot)
         xl, xh = zoom_range(x, lo, hi)
-        text!(ax, xh - 0.02 * (xh - xl), exp(-0.5); text = L"\Delta\chi^2 = 1", fontsize = 7,
+        text!(ax, xh - 0.02 * (xh - xl), exp(-0.5); text = L"D = 1", fontsize = 7,
               align = (:right, :bottom), color = :gray40)
         xlims!(ax, xl, xh); ylims!(ax, 0, 1.12)
     end
     Legend(fig[2, 1:2], content(fig[1, 1]); orientation = :horizontal, framevisible = false, labelsize = 7,
            padding = (0, 0, 0, 0), tellwidth = false)
-    Label(fig[0, 1:2], "$(uppercasefirst(ord_word(ordering))): Bayesian marginal vs. profile likelihood";
+    Label(fig[0, 1:2], "$(uppercasefirst(ord_word(ordering))): Bayesian marginal vs. conditional posterior-mode diagnostic";
           fontsize = 9, font = :regular, tellwidth = false)
     colgap!(fig.layout, 14); rowgap!(fig.layout, 4)
     return fig
