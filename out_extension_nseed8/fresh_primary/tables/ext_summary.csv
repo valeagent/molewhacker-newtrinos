@@ -1,0 +1,53 @@
+quantity,value,note
+logZ_phys_shift,9.269167571296192,ln Z_phys = ln Z_cube + shift (sum over Gaussian-pull parameters of the d = 24 box)
+logZ_cube_mh_seed11,NaN,population estimate
+logZ_phys_mh_seed11,NaN,physical units
+neff_mh_seed11,38.4992338182114,
+wall_h_mh_seed11,13.19556378161111,
+logZ_cube_mh_seed23,NaN,population estimate
+logZ_phys_mh_seed23,NaN,physical units
+neff_mh_seed23,36.550307279926386,
+wall_h_mh_seed23,13.234729041277777,
+logZ_cube_mw_seed11,-1260.5675656198223,final-inference estimate (independent draws from the final mixture)
+logZ_phys_mw_seed11,-1251.298398048526,physical units
+neff_mw_seed11,116.66848659321171,
+wall_h_mw_seed11,14.186406891972222,
+C_adapt_mw_seed11,376737.0,adaptation cost
+N_fresh_mw_seed11,30000.0,final-stage draws
+pareto_k_mw_seed11,0.9557888777693051,Pareto k-hat of the final batch
+P_upper_mw_seed11,0.4380765706635329,weighted
+logZ_cube_mw_seed23,-1260.7941103678193,final-inference estimate (independent draws from the final mixture)
+logZ_phys_mw_seed23,-1251.524942796523,physical units
+neff_mw_seed23,245.14180969315123,
+wall_h_mw_seed23,13.351280825805556,
+C_adapt_mw_seed23,376256.0,adaptation cost
+N_fresh_mw_seed23,30000.0,final-stage draws
+pareto_k_mw_seed23,0.8925625036026216,Pareto k-hat of the final batch
+P_upper_mw_seed23,0.5273954209099476,weighted
+logZ_cube_mw_seed41,-1260.6637577722493,final-inference estimate (independent draws from the final mixture)
+logZ_phys_mw_seed41,-1251.394590200953,physical units
+neff_mw_seed41,111.48992585449795,
+wall_h_mw_seed41,7.749094276888889,
+C_adapt_mw_seed41,376355.0,adaptation cost
+N_fresh_mw_seed41,30000.0,final-stage draws
+pareto_k_mw_seed41,0.8685745574355133,Pareto k-hat of the final batch
+P_upper_mw_seed41,0.40647857991792186,weighted
+nseed8_n_seed_seed11,8.0,seeds fitted (n_seed_used)
+nseed8_cost_iter0_seed11,283570.0,cost after iteration 0 = seed phase + 2000 IS draws
+nseed8_cost_per_seed_seed11,35196.25,(cost_iter0 - 2000) / n_seed
+nseed8_iterations_seed11,20.0,whacking iterations; stop = T_max
+nseed8_n_seed_seed23,8.0,seeds fitted (n_seed_used)
+nseed8_cost_iter0_seed23,283570.0,cost after iteration 0 = seed phase + 2000 IS draws
+nseed8_cost_per_seed_seed23,35196.25,(cost_iter0 - 2000) / n_seed
+nseed8_iterations_seed23,20.0,whacking iterations; stop = T_max
+nseed8_n_seed_seed41,8.0,seeds fitted (n_seed_used)
+nseed8_cost_iter0_seed41,283570.0,cost after iteration 0 = seed phase + 2000 IS draws
+nseed8_cost_per_seed_seed41,35196.25,(cost_iter0 - 2000) / n_seed
+nseed8_iterations_seed41,20.0,whacking iterations; stop = T_max
+protocol30_n_seed_seed11,30.0,seeds fitted (n_seed_used)
+protocol30_cost_iter0_seed11,836621.0,cost after iteration 0 = seed phase + 2000 IS draws
+protocol30_cost_per_seed_seed11,27820.7,(cost_iter0 - 2000) / n_seed
+protocol30_iterations_seed11,0.0,whacking iterations; stop = budget
+protocol30_logZ_cube_mw_seed11,-1260.8975737357287,"final-inference estimate, protocol cell (over budget; diagnostic)"
+protocol30_neff_mw_seed11,635.3694478654194,
+protocol30_wall_h_mw_seed11,21.932767147444444,

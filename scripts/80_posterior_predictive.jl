@@ -19,7 +19,7 @@
 # =============================================================================
 import Pkg
 Pkg.activate(joinpath(@__DIR__, ".."))
-using Random, Statistics, StatsBase, Printf, LinearAlgebra, DataFrames, CSV, Distributions
+using Random, Statistics, StatsBase, Printf, LinearAlgebra, DataFrames, CSV, Distributions, JLD2
 using CairoMakie, LaTeXStrings
 # Thesis benchmark harness (module ExperimentsBase) and the thesis-final
 # MoleWhacker; verbatim copies live in ../harness (see harness/PROVENANCE.md).
@@ -30,8 +30,19 @@ include(joinpath(@__DIR__, "..", "src", "neutrino_problem.jl"))
 
 const OUT = joinpath(@__DIR__, "..", "out")
 const RUNS = joinpath(OUT, "runs")
-const FIGS = joinpath(OUT, "figs"); mkpath(FIGS)
-const TABLES = joinpath(OUT, "tables"); mkpath(TABLES)
+# --estimator fresh: posterior draws are equal-weight resamples of the
+# independent final-mixture draws saved by 75_final_sample.jl
+# (out/fresh_d11/<cell>.jld2, three seeds pooled with equal batch shares);
+# outputs go to out/fresh_primary/{figs,tables}. Default: archived population
+# draws, archived output directories. The forward-model evaluations of this
+# script are posterior-predictive computations and are not part of any
+# sampler budget.
+const ESTIMATOR = let i = findfirst(==("--estimator"), ARGS); i === nothing ? "population" : ARGS[i+1] end
+ESTIMATOR in ("population", "fresh") || error("--estimator must be population or fresh")
+fresh_mode() = ESTIMATOR == "fresh"
+const FIGS = fresh_mode() ? joinpath(OUT, "fresh_primary", "figs") : joinpath(OUT, "figs"); mkpath(FIGS)
+const TABLES = fresh_mode() ? joinpath(OUT, "fresh_primary", "tables") : joinpath(OUT, "tables"); mkpath(TABLES)
+const FRESH_D11 = joinpath(OUT, "fresh_d11")
 const NDRAW = let i = findfirst(==("--ndraw"), ARGS); i === nothing ? 300 : parse(Int, ARGS[i+1]) end
 const MWCOL = "#D55E00"
 const EXP_COLOR = Dict("Daya Bay" => "#CC79A7", "KamLAND" => "#009E73", "MINOS" => "#0072B2")
@@ -129,11 +140,20 @@ function load_mw_draws(ordering, N; B = "B5e5", rng = MersenneTwister(2024))
     for name in dirs
         dir = joinpath(RUNS, name)
         meta = read_metadata_json(dir); pc = meta["problem"]["config"]
-        mr = load_method_result(dir)
         names = Symbol.(pc["names"])
-        w = isempty(mr.weights) ? ones(size(mr.samples, 2)) : mr.weights
-        S = resample_to_equal_weight(mr.samples, w, cld(N, length(dirs)); rng = rng)
-        push!(parts, to_physical_matrix(Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]), S))
+        if fresh_mode()
+            path = joinpath(FRESH_D11, name * ".jld2")
+            isfile(path) || error("estimator=fresh: no final-sample payload $path (75_final_sample.jl); no population fall-back")
+            d = JLD2.load(path)
+            Θ = d["theta"]; w = Vector{Float64}(d["weights"])      # physical coordinates, normalized weights
+            Symbol.(d["names"]) == names || error("name mismatch in $path")
+            push!(parts, resample_to_equal_weight(Θ, w, cld(N, length(dirs)); rng = rng))
+        else
+            mr = load_method_result(dir)
+            w = isempty(mr.weights) ? ones(size(mr.samples, 2)) : mr.weights
+            S = resample_to_equal_weight(mr.samples, w, cld(N, length(dirs)); rng = rng)
+            push!(parts, to_physical_matrix(Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]), S))
+        end
     end
     return Draws(names, hcat(parts...))
 end
@@ -241,8 +261,10 @@ function fig_data(ordering)
 end
 
 function main()
-    save_pdf(fig_intro(), "nu_intro"; dir = FIGS)
-    println("intro done")
+    if !fresh_mode()     # the analytic intro figure does not depend on the estimator
+        save_pdf(fig_intro(), "nu_intro"; dir = FIGS)
+        println("intro done")
+    end
     for ord in (:NO, :IO)
         save_pdf(fig_data(ord), "nu_data_$(ord)"; dir = FIGS)
         println("data figure $ord done")

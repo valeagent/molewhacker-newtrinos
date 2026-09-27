@@ -25,11 +25,20 @@ const HARNESS = joinpath(@__DIR__, "..", "harness", "experiments", "src", "Exper
 include(HARNESS)
 using .ExperimentsBase
 include(joinpath(@__DIR__, "..", "src", "published_values.jl"))
+include(joinpath(@__DIR__, "fresh_common.jl"))   # --estimator population|fresh (default population)
 
 const OUT = let i = findfirst(==("--out"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out") : ARGS[i+1] end
 const BTOP = let i = findfirst(==("--B"), ARGS); i === nothing ? 5e5 : parse(Float64, ARGS[i+1]) end
 const RUNS = joinpath(OUT, "runs")
-const FIGS = joinpath(OUT, "figs")
+# --estimator fresh: MoleWhacker cells are represented by their saved final
+# sample (out/fresh_d11/<cell>.jld2, 75_final_sample.jl); figures go to
+# out/fresh_primary/figs and the data-dependent tables (agreement, evidence)
+# are read from out/fresh_primary/tables (20_aggregate.jl --estimator fresh).
+# Reference inputs that are not re-estimated (profile scans, anchored-IS
+# evidence check) are always read from out/tables.
+const FIGS = fresh_mode() ? joinpath(fresh_subdir(OUT), "figs") : joinpath(OUT, "figs")
+const TABLES_PRIMARY = fresh_mode() ? joinpath(fresh_subdir(OUT), "tables") : joinpath(OUT, "tables")
+const TABLES_REF = joinpath(OUT, "tables")
 mkpath(FIGS)
 const OSC = [:θ₁₂, :θ₁₃, :θ₂₃, :δCP, :Δm²₂₁, :Δm²₃₁]
 const OSC_MEASURED = [:θ₁₂, :θ₁₃, :θ₂₃, :Δm²₂₁, :Δm²₃₁]
@@ -78,6 +87,10 @@ function load_cells()
         meta = read_metadata_json(dir); pc = meta["problem"]["config"]
         mr = load_method_result(dir)
         size(mr.samples, 2) <= 1 && continue
+        if fresh_mode() && mr.algorithm === :mw
+            mr = fresh_method_result(mr, fresh_payload_path(OUT, name),
+                                     Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]))
+        end
         # JSON has no Inf: the harness writes non-finite floats as null
         _f(x) = x === nothing ? Inf : Float64(x)
         push!(cells, Cell(mr.problem, Symbol(pc["ordering"]), mr.algorithm, mr.B, mr.seed, mr,
@@ -104,15 +117,35 @@ function eq_physical(c::Cell, N::Int, rng)
     physical(c, resample_to_equal_weight(c.mr.samples, w, N; rng = rng))
 end
 
-# Pool the same (ordering, alg, B) across seeds. Returns (Θ, first cell, summed ESS);
-# the ESS (not the resampled count) sets the KDE bandwidth.
+# Pool the same (ordering, alg, B) across seeds (equal number of equal-weight
+# display resamples per seed = equal-batch pooling). Returns (Θ, first cell,
+# effective size); the effective size (not the resampled count) sets the KDE
+# bandwidth. For pooled final-inference batches (estimator fresh) it is the
+# combined Kish size J² / Σ_j (1/E_j); otherwise the summed per-run ESS.
 function pooled(cells, ordering, alg, B, N, rng)
     sel = [c for c in cells if c.ordering === ordering && c.alg === alg && c.B == B]
     isempty(sel) && return nothing, nothing, 0.0
     Ns = cld(N, length(sel))
-    ne = sum(neff(c.mr) for c in sel)
+    ne = pool_neff([c.mr for c in sel])
     return hcat((eq_physical(c, Ns, rng) for c in sel)...), sel[1], ne
 end
+
+# Equal-batch weighted posterior probability of the upper octant of one pool,
+# computed from the weights (no plotting resample involved).
+function pooled_pupper(cells, ordering, alg, B)
+    sel = [c for c in cells if c.ordering === ordering && c.alg === alg && c.B == B]
+    isempty(sel) && return NaN
+    S, a = pooled_weighted([c.mr for c in sel])
+    Θ = physical(sel[1], S)
+    i23 = idx(sel[1], :θ₂₃)
+    return sum(a[view(Θ, i23, :) .> π / 4]) / sum(a)
+end
+
+# Scott's rule per axis for the 2-D KDEs at the effective (not resampled) size.
+bw_scott2(x, ne) = std(x) * max(ne, 10.0)^(-1 / 6)
+
+# Second title line in fresh mode
+fresh_note(ne) = fresh_mode() ? @sprintf("\nMoleWhacker: independent draws from the final mixture, pooled N_eff = %.0f", ne) : ""
 
 idx(c::Cell, nm::Symbol) = findfirst(==(nm), c.names)
 
@@ -250,8 +283,9 @@ function fig_marginals(cells, ordering; algs = (:mw, :mh, :nuts, :ns), B = BTOP)
     end
     Legend(fig[3, 1:3], leg_el, leg_lb; orientation = :horizontal, nbanks = 2, framevisible = false,
            padding = (0, 0, 0, 0), labelsize = 7, colgap = 14, rowgap = 1, tellwidth = false)
-    Label(fig[0, 1:3], "Daya Bay + KamLAND + MINOS, $(ord_word(ordering)), B = $(fmt_B_short(B))";
-          fontsize = 9, font = :regular, tellwidth = false)
+    Label(fig[0, 1:3], "Daya Bay + KamLAND + MINOS, $(ord_word(ordering)), B = $(fmt_B_short(B))" *
+                       (haskey(pools, :mw) && pools[:mw][1] !== nothing ? fresh_note(pools[:mw][3]) : "");
+          fontsize = fresh_mode() ? 8 : 9, font = :regular, tellwidth = false, justification = :center)
     rowgap!(fig.layout, 6); colgap!(fig.layout, 14)
     return fig
 end
@@ -315,9 +349,14 @@ function fig_corner(cells, ordering; B = BTOP)
             xlims!(ax, xl...); ylims!(ax, 0, 1.08 * ymax)
         else
             yl = lims[ni]
-            for (Θ, c, alg) in ((Θmw, cmw, :mw), (Θmh, cmh, :mh))
+            for (Θ, c, ne, alg) in ((Θmw, cmw, nemw, :mw), (Θmh, cmh, nemh, :mh))
                 x = col(Θ, c, nj); y = col(Θ, c, ni)
-                k = kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (200, 200))
+                # fresh mode: bandwidth at the effective size of the pool, not at the
+                # size of the equal-weight display resample
+                k = fresh_mode() ?
+                    kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (200, 200),
+                        bandwidth = (bw_scott2(x, ne), bw_scott2(y, ne))) :
+                    kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (200, 200))
                 lv = hdr_levels(k.density, fracs)          # lv[1] = 68.3 % threshold > lv[2] = 95.4 % threshold
                 if alg === :mw
                     contourf!(ax, k.x, k.y, k.density; levels = [lv[2], lv[1], 1.001 * maximum(k.density)],
@@ -337,9 +376,11 @@ function fig_corner(cells, ordering; B = BTOP)
               "MoleWhacker marginal", "MH (reference) marginal"]
     Legend(fig[1:2, 3:nc], leg_el, leg_lb; framevisible = false, labelsize = 7.5, patchsize = (14, 8),
            tellwidth = false, tellheight = false, halign = :right, valign = :top, rowgap = 2)
+    sub = fresh_mode() ?
+        @sprintf("(angles in rad, Δm²₂₁ in 10⁻⁵ eV², Δm²₃₁ in 10⁻³ eV²; 3×10⁴ equal-weight display draws per sampler;\nthree seeds pooled; MoleWhacker = independent final-mixture draws, N_eff = %.0f; MH N_eff = %.0f)", nemw, nemh) :
+        "(angles in rad, Δm²₂₁ in 10⁻⁵ eV², Δm²₃₁ in 10⁻³ eV²; 3×10⁴ draws per sampler, three seeds pooled)"
     Label(fig[0, 1:nc], "$(uppercasefirst(ord_word(ordering))), B = $(fmt_B_short(B)): " *
-                        "regions enclosing 68.3 % and 95.4 % of the posterior mass\n" *
-                        "(angles in rad, Δm²₂₁ in 10⁻⁵ eV², Δm²₃₁ in 10⁻³ eV²; 3×10⁴ draws per sampler, three seeds pooled)",
+                        "regions enclosing 68.3 % and 95.4 % of the posterior mass\n" * sub,
           fontsize = 7.5, font = :regular, tellwidth = false, justification = :center)
     colgap!(fig.layout, 4); rowgap!(fig.layout, 4)
     return fig
@@ -406,7 +447,9 @@ function fig_octant(cells; algs = (:mw, :mh, :nuts, :ns), B = BTOP)
             lo, hi = sin(c.lo[idx(c, :θ₂₃)])^2, sin(c.hi[idx(c, :θ₂₃)])^2
             m = kde_line!(ax, s2, lo, hi; ne = ne, color = NU_COLOR[alg], linewidth = NU_LW[alg], linestyle = NU_LS[alg])
             ymax = max(ymax, m)
-            push!(pup, (alg, mean(s2 .> 0.5)))
+            # fresh mode: the printed probability is the equal-batch weighted value
+            # of the pool, not the fraction of the display resample
+            push!(pup, (alg, fresh_mode() ? pooled_pupper(cells, ordering, alg, B) : mean(s2 .> 0.5)))
             if j == 1
                 push!(leg_el, LineElement(color = NU_COLOR[alg], linewidth = NU_LW[alg], linestyle = NU_LS[alg]))
                 push!(leg_lb, NU_LABEL[alg])
@@ -574,7 +617,11 @@ function fig_agreement(tables_dir)
     return fig
 end
 
-function fig_evidence(tables_dir)
+# `tables_dir` holds evidence.csv (the estimates being shown); `ref_dir` holds
+# the reference inputs evidence_check.csv and mw_mixture_check.csv (archived,
+# never re-estimated). In fresh mode the MoleWhacker points *are* the fresh-draw
+# evidences, so the separate "MW mixture, fresh draws" overlay is not drawn.
+function fig_evidence(tables_dir; ref_dir = tables_dir)
     path = joinpath(tables_dir, "evidence.csv")
     isfile(path) || return nothing
     df = CSV.read(path, DataFrame)
@@ -588,7 +635,7 @@ function fig_evidence(tables_dir)
     leg_el = []; leg_lb = String[]
     # reference band: defensive kernel-mixture IS anchored on the pooled MH chains
     # (70_evidence_check.jl); the band is mean ± max(SE, half the bandwidth spread)
-    chk_path = joinpath(tables_dir, "evidence_check.csv")
+    chk_path = joinpath(ref_dir, "evidence_check.csv")
     if isfile(chk_path)
         chk = CSV.read(chk_path, DataFrame)
         a = chk[chk.method .== "anchored_is", :]
@@ -635,12 +682,13 @@ function fig_evidence(tables_dir)
             end
         end
         push!(leg_el, MarkerElement(color = NU_COLOR[alg], marker = NU_MARKER[alg], markersize = 6))
-        push!(leg_lb, NU_LABEL[alg])
+        push!(leg_lb, alg === :mw && fresh_mode() ? "MoleWhacker (final independent draws)" : NU_LABEL[alg])
     end
     # MoleWhacker's final mixture re-used as a plain IS proposal with fresh draws
     # (72_mw_mixture_check.jl): isolates the pooled-cloud bookkeeping offset.
-    mix_path = joinpath(tables_dir, "mw_mixture_check.csv")
-    if isfile(mix_path)
+    # Population mode only: in fresh mode these are the MoleWhacker points themselves.
+    mix_path = joinpath(ref_dir, "mw_mixture_check.csv")
+    if isfile(mix_path) && !fresh_mode()
         mx = CSV.read(mix_path, DataFrame)
         for (j, ord) in enumerate(("NO", "IO"))
             s = mx[mx.ordering .== ord, :]
@@ -682,11 +730,12 @@ function main()
         "nuisance" in FIGSEL30 && (f = fig_nuisance(cells, ord); f === nothing || save_pdf(f, "nu_nuisance_$(ord)"; dir = FIGS))
         mw = [c for c in cells if c.ordering === ord && c.alg === :mw && c.B == BTOP && c.seed == 11]
         "iter" in FIGSEL30 && !isempty(mw) && save_pdf(fig_iter_mw_wide(mw[1].mr; title = "Daya Bay + KamLAND + MINOS, $(ord_word(ord)), B = $(fmt_B_short(BTOP)), seed 11"), "nu_mw_iter_$(ord)"; dir = FIGS)
-        "profile" in FIGSEL30 && (f = fig_profile(cells, ord, joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_profile_$(ord)"; dir = FIGS))
+        # profile scans (50_profile.jl) are archived reference inputs: always from out/tables
+        "profile" in FIGSEL30 && (f = fig_profile(cells, ord, TABLES_REF); f === nothing || save_pdf(f, "nu_profile_$(ord)"; dir = FIGS))
     end
     "octant" in FIGSEL30 && (f = fig_octant(cells); f === nothing || save_pdf(f, "nu_octant"; dir = FIGS))
-    "agreement" in FIGSEL30 && (f = fig_agreement(joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_agreement"; dir = FIGS))
-    "evidence" in FIGSEL30 && (f = fig_evidence(joinpath(OUT, "tables")); f === nothing || save_pdf(f, "nu_evidence"; dir = FIGS))
+    "agreement" in FIGSEL30 && (f = fig_agreement(TABLES_PRIMARY); f === nothing || save_pdf(f, "nu_agreement"; dir = FIGS))
+    "evidence" in FIGSEL30 && (f = fig_evidence(TABLES_PRIMARY; ref_dir = TABLES_REF); f === nothing || save_pdf(f, "nu_evidence"; dir = FIGS))
     println("PLOTS-DONE")
 end
 

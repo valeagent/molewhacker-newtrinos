@@ -208,7 +208,8 @@ function fig_ext_data(cells4)
         push!(rows, ("ratio_LE_pid$(p)_bin$(b)_LoverE", le_c[b])); push!(rows, ("ratio_LE_pid$(p)_bin$(b)_obs", le[p].obs[b] / le[p].noo[b]))
         push!(rows, ("ratio_LE_pid$(p)_bin$(b)_ppd", median(le[p].acc[b, :]) / le[p].noo[b]))
     end
-    mkpath(joinpath(EXT, "tables")); CSV.write(joinpath(EXT, "tables", "deepcore_posterior_predictive.csv"), rows)
+    tdir = fresh_mode() ? joinpath(EXT, "fresh_primary", "tables") : joinpath(EXT, "tables")
+    mkpath(tdir); CSV.write(joinpath(tdir, "deepcore_posterior_predictive.csv"), rows)
     return fig
 end
 
@@ -256,9 +257,13 @@ function fig_ext_tri(cells4, params::Vector{Symbol}; short = SHORT_OSC, headline
             xlims!(ax, xl...); ylims!(ax, 0, 1.08 * ymax)
         else
             yl = lims[ni]
-            for (Θ, c, alg) in ((Θmw, cmw, :mw), (Θmh, cmh, :mh))
+            for (Θ, c, ne, alg) in ((Θmw, cmw, nemw, :mw), (Θmh, cmh, nemh, :mh))
                 x = col(Θ, c, nj); y = col(Θ, c, ni)
-                k = kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (200, 200))
+                # fresh mode: bandwidth at the effective size of the pool (as in fig_corner)
+                k = fresh_mode() ?
+                    kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (200, 200),
+                        bandwidth = (bw_scott2(x, ne), bw_scott2(y, ne))) :
+                    kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (200, 200))
                 lv = hdr_levels(k.density, fracs)
                 if alg === :mw
                     contourf!(ax, k.x, k.y, k.density; levels = [lv[2], lv[1], 1.001 * maximum(k.density)], colormap = cmap_fill)
@@ -277,6 +282,11 @@ function fig_ext_tri(cells4, params::Vector{Symbol}; short = SHORT_OSC, headline
               "MoleWhacker marginal", "MH (reference) marginal"]
     Legend(fig[1:2, 3:nc], leg_el, leg_lb; framevisible = false, labelsize = 7.5, patchsize = (14, 8),
            tellwidth = false, tellheight = false, halign = :right, valign = :top, rowgap = 2)
+    if fresh_mode()
+        # three short lines (the wide second line of the population headline would be clipped)
+        headline = replace(headline, "3×10⁴ draws per sampler, seeds pooled)" => "3×10⁴ equal-weight display draws per sampler;") *
+                   @sprintf("\nseeds pooled; MoleWhacker = independent final-mixture draws, N_eff = %.0f; MH N_eff = %.0f)", nemw, nemh)
+    end
     Label(fig[0, 1:nc], headline; fontsize = 7.5, font = :regular, tellwidth = false, justification = :center)
     colgap!(fig.layout, 4); rowgap!(fig.layout, 4)
     return fig
@@ -289,7 +299,11 @@ function fig_ext_octant(cells3, cells4)
     Θ3, c3, ne3 = pooled(cells3, :NO, :mw, BTOP, 40_000, rng)
     Θ4, c4, ne4 = pooled(cells4, :NO, :mw, BTOP, 40_000, rng)
     Θh, ch, neh = pooled(cells4, :NO, :mh, mh_B(cells4), 40_000, rng)
-    Θf, nf, nef, pups = fresh_pool(cld(40_000, 3); rng = rng)
+    # population mode: the fresh-draw curve is the separate check of the archived
+    # chapter; in fresh mode the MoleWhacker curves *are* the final independent
+    # draws (three-experiment: out/fresh_d11; four-experiment: <ext>/fresh), so no
+    # second copy is drawn
+    Θf, nf, nef, pups = fresh_mode() ? (nothing, nothing, 0.0, Float64[]) : fresh_pool(cld(40_000, 3); rng = rng)
     Θ4 === nothing && return nothing
     set_pub_theme!(class = :wide)
     W, _ = figure_size(:wide, :viz_marginal)
@@ -300,15 +314,19 @@ function fig_ext_octant(cells3, cells4)
     s2(Θ, names) = sin.(Θ[findfirst(==(:θ₂₃), names), :]) .^ 2
     lo, hi = sin(c4.lo[idx(c4, :θ₂₃)])^2, sin(c4.hi[idx(c4, :θ₂₃)])^2
     curves = Any[]
-    Θ3 === nothing || push!(curves, (s2(Θ3, c3.names), ne3, C3, 1.2, :solid, "three exp.: MoleWhacker", nothing))
-    push!(curves, (s2(Θ4, c4.names), ne4, NU_COLOR[:mw], NU_LW[:mw], :solid, "four exp.: MoleWhacker population", nothing))
+    # last tuple entry: the weight-based P(upper octant) of the pool (fresh mode),
+    # `nothing` = fraction of the display resample (archived convention)
+    fr = fresh_mode()
+    mw4_label = fr ? "four exp.: MoleWhacker" : "four exp.: MoleWhacker population"
+    Θ3 === nothing || push!(curves, (s2(Θ3, c3.names), ne3, C3, 1.2, :solid, "three exp.: MoleWhacker", fr ? pooled_pupper(cells3, :NO, :mw, BTOP) : nothing))
+    push!(curves, (s2(Θ4, c4.names), ne4, NU_COLOR[:mw], NU_LW[:mw], :solid, mw4_label, fr ? pooled_pupper(cells4, :NO, :mw, BTOP) : nothing))
     Θf === nothing || push!(curves, (s2(Θf, nf), nef, NU_COLOR[:mw], 1.3, :dot, "four exp.: MoleWhacker fresh draws", nothing))
-    Θh === nothing || push!(curves, (s2(Θh, ch.names), neh, NU_COLOR[:mh], NU_LW[:mh], :dash, "four exp.: MH (reference)", nothing))
+    Θh === nothing || push!(curves, (s2(Θh, ch.names), neh, NU_COLOR[:mh], NU_LW[:mh], :dash, "four exp.: MH (reference)", fr ? pooled_pupper(cells4, :NO, :mh, mh_B(cells4)) : nothing))
     ymax = 0.0; leg_el = Any[]; leg_lb = String[]; pup = Tuple{String,Float64}[]
-    for (x, ne, colr, lw, ls, label, _) in curves
+    for (x, ne, colr, lw, ls, label, pw) in curves
         ymax = max(ymax, kde_line!(ax, x, lo, hi; ne = ne, color = colr, linewidth = lw, linestyle = ls))
         push!(leg_el, LineElement(color = colr, linewidth = lw, linestyle = ls)); push!(leg_lb, label)
-        push!(pup, (label, mean(x .> 0.5)))
+        push!(pup, (label, pw === nothing ? mean(x .> 0.5) : pw))
     end
     vspan!(ax, [0.25], [0.5]; color = (:gray80, 0.35))
     vlines!(ax, [0.5]; color = :gray40, linestyle = :dash, linewidth = 0.8)
@@ -319,6 +337,7 @@ function fig_ext_octant(cells3, cells4)
     text!(ax, 0.745, 0.02top; text = "upper octant", fontsize = 7, align = (:right, :bottom), color = :gray30)
     short = Dict("three exp.: MoleWhacker" => "three exp., MoleWhacker",
                  "four exp.: MoleWhacker population" => "four exp., MoleWhacker population",
+                 "four exp.: MoleWhacker" => "four exp., MoleWhacker",
                  "four exp.: MoleWhacker fresh draws" => "four exp., MoleWhacker fresh draws",
                  "four exp.: MH (reference)" => "four exp., MH (reference)")
     text!(ax, 0.258, 0.985top; text = "P(upper octant)\n" * join([short[l] for (l, _) in pup], "\n"),
@@ -328,7 +347,9 @@ function fig_ext_octant(cells3, cells4)
     xlims!(ax, 0.25, 0.75); ylims!(ax, 0, top)
     Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = 2, framevisible = false,
            labelsize = 6.5, padding = (0, 0, 0, 0), tellwidth = false, colgap = 10, rowgap = 1)
-    Label(fig[0, 1], "Normal ordering, B = $(fmt_B_short(BTOP))"; fontsize = 8.5, font = :regular, tellwidth = false)
+    Label(fig[0, 1], "Normal ordering, B = $(fmt_B_short(BTOP))" *
+                     (fresh_mode() ? @sprintf("\nMoleWhacker: independent draws from the final mixtures\n(pooled N_eff: three exp. %.0f, four exp. %.0f)", ne3, ne4) : "");
+          fontsize = fresh_mode() ? 7.5 : 8.5, font = :regular, tellwidth = false, justification = :center)
     rowgap!(fig.layout, 4)
     @info "octant figure" P_upper = pup fresh_per_cell = pups fresh_ess = nef
     return fig

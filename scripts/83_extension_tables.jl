@@ -29,9 +29,14 @@ using .ExperimentsBase
 
 const EXT = let i = findfirst(==("--ext"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension_nseed8") : ARGS[i+1] end
 const EXT_PROTO = let i = findfirst(==("--ext-proto"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out_extension") : ARGS[i+1] end
-const T3 = TABLES                       # three-experiment tables (out/tables)
-const T4 = joinpath(EXT, "tables")      # four-experiment tables
-const TP = joinpath(EXT_PROTO, "tables") # protocol cell (30 seeds) + original MH cell
+# --estimator fresh (inherited from 40_tables.jl): the aggregated tables of all
+# three roots are read from their fresh_primary/tables sub-directories
+# (20_aggregate.jl --estimator fresh) and the fragments are written there;
+# fresh.csv (81_extension_fresh.jl) stays a reference input in <ext>/tables.
+const T3 = TABLES                       # three-experiment tables (out/tables or out/fresh_primary/tables)
+const T4 = fresh_mode() ? joinpath(EXT, "fresh_primary", "tables") : joinpath(EXT, "tables")            # four-experiment tables
+const TP = fresh_mode() ? joinpath(EXT_PROTO, "fresh_primary", "tables") : joinpath(EXT_PROTO, "tables") # protocol cell (30 seeds) + original MH cell
+const T4_REF = joinpath(EXT, "tables")
 
 readcsv(dir, name) = let p = joinpath(dir, name); isfile(p) ? CSV.read(p, DataFrame) : nothing end
 
@@ -126,11 +131,23 @@ function mw_seed_phase(runs)
     return out
 end
 
+# Fresh mode: the MoleWhacker rows are the final-inference estimates (independent
+# draws from the final mixture): N_L used = C_adapt + N_fresh, N_eff and ln Z of
+# the fresh batch, wall time = adaptation + final-stage evaluation (the latter
+# from fresh.csv of 81_extension_fresh.jl), Pareto k̂ (median, max over seeds);
+# the separate "fresh check" column of the population table is then redundant.
 function table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)
     io_ = IOBuffer()
-    println(io_, "\\begin{tabular}{@{}lrrrrrrrrrrl@{}}")
-    println(io_, "  \\toprule")
-    println(io_, "  Sampler & seeds & \\(n_{\\mathrm{seed}}\\) & init.\\ phase & \\(T\\) & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) (population) & fresh: \\(\\ln\\evidence\\), eff. \\\\")
+    fm = fresh_mode()
+    if fm
+        println(io_, "\\begin{tabular}{@{}lrrrrrrrrrrrrr@{}}")
+        println(io_, "  \\toprule")
+        println(io_, "  Sampler & seeds & \\(n_{\\mathrm{seed}}\\) & init.\\ phase & \\(T\\) & \\(C_{\\mathrm{adapt}}\\) & \\(N_{\\mathrm{fresh}}\\) & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\hat k\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) \\\\")
+    else
+        println(io_, "\\begin{tabular}{@{}lrrrrrrrrrrl@{}}")
+        println(io_, "  \\toprule")
+        println(io_, "  Sampler & seeds & \\(n_{\\mathrm{seed}}\\) & init.\\ phase & \\(T\\) & \\(\\Nlike\\) used & wall [h] & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) (population) & fresh: \\(\\ln\\evidence\\), eff. \\\\")
+    end
     println(io_, "  \\midrule")
     function row(label, s, a, fr, sp)
         nrow(s) == 0 && return
@@ -143,9 +160,21 @@ function table_ext_samplers(cells4, agree4, cellsP, fresh, seeds4, seedsP)
         ns = (sp === nothing || nrow(sp) == 0) ? "--" : string(maximum(sp.n_seed))
         c0 = (sp === nothing || nrow(sp) == 0 || all(isnan.(sp.cost_iter0))) ? "--" : "\\(" * fmt_cost(median(filter(!isnan, sp.cost_iter0))) * "\\)"
         it = (sp === nothing || nrow(sp) == 0) ? "--" : (length(unique(sp.iterations)) == 1 ? string(sp.iterations[1]) : "$(minimum(sp.iterations))--$(maximum(sp.iterations))")
-        println(io_, "  ", label, " & ", nrow(s), " & ", ns, " & ", c0, " & ", it, " & \\(", fmt_cost(median(s.Nlike_used)), "\\) & ", fmt_h(median(s.wall_time_s)), " & ", nstr,
-                " & \\(", replace(sci(median(s.eta); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}"), "\\) & ", w1, " & ", lz,
-                " & ", fz, (fz == "--" ? "" : ", " * fe), " \\\\")
+        eta = "\\(" * replace(sci(median(s.eta); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}") * "\\)"
+        if fm
+            ismw = "estimator" in names(s) && all(s.estimator .== "fresh")
+            ca = ismw ? "\\(" * fmt_cost(median(s.C_adapt)) * "\\)" : "--"
+            nf = ismw ? "\\(" * fmt_cost(median(s.N_fresh)) * "\\)" : "--"
+            kh = ismw ? (nrow(s) > 1 ? @sprintf("%.2f (%.2f)", median(s.pareto_k), maximum(s.pareto_k)) : @sprintf("%.2f", s.pareto_k[1])) : "--"
+            # wall: adaptation (cells.csv) + final-stage evaluation (fresh.csv wall_s) when available
+            wall = median(s.wall_time_s) + (ismw && fr !== nothing && nrow(fr) > 0 && "wall_s" in names(fr) ? median(fr.wall_s) : 0.0)
+            println(io_, "  ", label, " & ", nrow(s), " & ", ns, " & ", c0, " & ", it, " & ", ca, " & ", nf, " & \\(", fmt_cost(median(s.Nlike_used)), "\\) & ",
+                    fmt_h(wall), " & ", nstr, " & ", eta, " & ", kh, " & ", w1, " & ", lz, " \\\\")
+        else
+            println(io_, "  ", label, " & ", nrow(s), " & ", ns, " & ", c0, " & ", it, " & \\(", fmt_cost(median(s.Nlike_used)), "\\) & ", fmt_h(median(s.wall_time_s)), " & ", nstr,
+                    " & ", eta, " & ", w1, " & ", lz,
+                    " & ", fz, (fz == "--" ? "" : ", " * fe), " \\\\")
+        end
     end
     sel(cells, alg) = cells === nothing ? DataFrame() : cells[(cells.ordering .== "NO") .& (cells.alg .== alg) .& (cells.B .== B_of(cells, alg)), :]
     sela(agree, alg) = agree === nothing ? nothing : agree[(agree.ordering .== "NO") .& (agree.alg .== alg) .& (agree.B .== B_of(agree, alg)), :]
@@ -165,7 +194,7 @@ function main_ext()
     phys3, phys4 = readcsv(T3, "physics.csv"), readcsv(T4, "physics.csv")
     cells4, agree4 = readcsv(T4, "cells.csv"), readcsv(T4, "agreement.csv")
     cellsP = readcsv(TP, "cells.csv")          # protocol cell (30 seeds), aggregated in its own root
-    fresh = readcsv(T4, "fresh.csv")           # 81_extension_fresh.jl (optional)
+    fresh = readcsv(T4_REF, "fresh.csv")       # 81_extension_fresh.jl (optional; reference input)
     seeds4, seedsP = mw_seed_phase(joinpath(EXT, "runs")), mw_seed_phase(joinpath(EXT_PROTO, "runs"))
     cells4 === nothing && error("no four-experiment tables in $(T4); run 20_aggregate.jl --out $(EXT) --tag nu_dakamide_ first")
     for (name, tab) in (("tab_nu_ext_physics.tex", table_ext_physics(phys3, phys4)),
@@ -177,10 +206,15 @@ function main_ext()
     shift = logz_phys_shift(joinpath(EXT, "runs"))
     s = DataFrame(quantity = String[], value = Float64[], note = String[])
     push!(s, ("logZ_phys_shift", shift, "ln Z_phys = ln Z_cube + shift (sum over Gaussian-pull parameters of the d = 24 box)"))
+    est(r) = fresh_mode() && "estimator" in names(cells4) && r.estimator == "fresh" ? "final-inference estimate (independent draws from the final mixture)" : "population estimate"
     for r in eachrow(cells4)      # MoleWhacker cells at BTOP and the MH chains at 2.5e5
-        push!(s, ("logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "population estimate"))
+        push!(s, ("logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, est(r)))
         push!(s, ("logZ_phys_$(r.alg)_seed$(r.seed)", r.logZ + shift, "physical units"))
         push!(s, ("neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
+        if fresh_mode() && "estimator" in names(cells4) && r.estimator == "fresh"
+            push!(s, ("C_adapt_$(r.alg)_seed$(r.seed)", r.C_adapt, "adaptation cost")); push!(s, ("N_fresh_$(r.alg)_seed$(r.seed)", r.N_fresh, "final-stage draws"))
+            push!(s, ("pareto_k_$(r.alg)_seed$(r.seed)", r.pareto_k, "Pareto k-hat of the final batch")); push!(s, ("P_upper_$(r.alg)_seed$(r.seed)", r.P_upper_octant, "weighted"))
+        end
     end
     for (tag, sp) in (("nseed8", seeds4), ("protocol30", seedsP)), r in eachrow(sp)
         push!(s, ("$(tag)_n_seed_seed$(r.seed)", r.n_seed, "seeds fitted (n_seed_used)"))
@@ -190,7 +224,7 @@ function main_ext()
     end
     if cellsP !== nothing
         for r in eachrow(cellsP[cellsP.alg .== "mw", :])
-            push!(s, ("protocol30_logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, "population estimate, protocol cell"))
+            push!(s, ("protocol30_logZ_cube_$(r.alg)_seed$(r.seed)", r.logZ, (fresh_mode() && "estimator" in names(cellsP) && r.estimator == "fresh" ? "final-inference estimate" : "population estimate") * ", protocol cell (over budget; diagnostic)"))
             push!(s, ("protocol30_neff_$(r.alg)_seed$(r.seed)", r.neff, "")); push!(s, ("protocol30_wall_h_$(r.alg)_seed$(r.seed)", r.wall_time_s / 3600, ""))
         end
     end

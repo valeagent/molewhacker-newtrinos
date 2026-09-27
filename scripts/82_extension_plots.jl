@@ -72,6 +72,13 @@ function load_cells_from(runs::AbstractString, prefix::AbstractString)
         mr = load_method_result(dir)
         size(mr.samples, 2) <= 1 && continue
         string(get(mr.extras, :stop_reason, "")) == "error" && continue
+        if fresh_mode() && mr.algorithm === :mw
+            # estimator fresh: independent draws from the final mixture
+            # (out/fresh_d11/<cell>.jld2 for the three-experiment cells,
+            # <ext>/fresh/nseed8__<cell>.jld2 for the four-experiment cells)
+            mr = fresh_method_result(mr, fresh_payload_path(dirname(runs), name),
+                                     Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]))
+        end
         _f(x) = x === nothing ? Inf : Float64(x)
         push!(cells, Cell(mr.problem, Symbol(pc["ordering"]), mr.algorithm, mr.B, mr.seed, mr,
             Symbol.(pc["names"]), Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]),
@@ -125,8 +132,14 @@ function read_dc_contour()
     return (x = Float64.(t[:, 1]), y = Float64.(t[:, 2]) .* 1e3)   # Δm²₃₂ in 10⁻³ eV²
 end
 
-# 2-D KDE thresholds enclosing the given mass fractions (highest-density regions)
-function kde2(x, y, xl, yl)
+# 2-D KDE thresholds enclosing the given mass fractions (highest-density regions).
+# Fresh mode: bandwidth at the effective size `ne` of the pool (Scott's rule per
+# axis), not at the size of the equal-weight display resample.
+function kde2(x, y, xl, yl; ne = nothing)
+    if fresh_mode() && ne !== nothing
+        return kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (220, 220),
+                   bandwidth = (bw_scott2(x, ne), bw_scott2(y, ne)))
+    end
     return kde((collect(x), collect(y)); boundary = (xl, yl), npoints = (220, 220))
 end
 
@@ -159,20 +172,20 @@ function fig_ext_plane(cells3, cells4; B = BTOP)
     leg_el = Any[]; leg_lb = String[]
     # three experiments first (background)
     if Θ3 !== nothing
-        k3 = kde2(s2th23(Θ3, c3), dm32(Θ3, c3) .* 1e3, xl, yl)
+        k3 = kde2(s2th23(Θ3, c3), dm32(Θ3, c3) .* 1e3, xl, yl; ne = ne3)
         lv3 = hdr_levels(k3.density, [0.90])
         contour!(ax, k3.x, k3.y, k3.density; levels = lv3, color = C3, linewidth = 1.1, linestyle = :dashdot)
         push!(leg_el, LineElement(color = C3, linewidth = 1.1, linestyle = :dashdot))
         push!(leg_lb, "three experiments, 90 % region (MoleWhacker)")
     end
     # four experiments: MoleWhacker filled, MH contour
-    k4 = kde2(x4, y4, xl, yl)
+    k4 = kde2(x4, y4, xl, yl; ne = ne4)
     lv4 = hdr_levels(k4.density, fracs)                # lv4[1] (68.3 %) > lv4[2] (90 %)
     contourf!(ax, k4.x, k4.y, k4.density; levels = [lv4[2], lv4[1], 1.001 * maximum(k4.density)], colormap = cmap_fill)
     pushfirst!(leg_el, PolyElement(color = fill_cols[1])); pushfirst!(leg_lb, "four experiments, 90 % region (MoleWhacker)")
     pushfirst!(leg_el, PolyElement(color = fill_cols[2])); pushfirst!(leg_lb, "four experiments, 68.3 % region (MoleWhacker)")
     if Θh !== nothing
-        kh = kde2(s2th23(Θh, ch), dm32(Θh, ch) .* 1e3, xl, yl)
+        kh = kde2(s2th23(Θh, ch), dm32(Θh, ch) .* 1e3, xl, yl; ne = neh)
         lvh = hdr_levels(kh.density, [0.90])
         contour!(ax, kh.x, kh.y, kh.density; levels = lvh, color = NU_COLOR[:mh], linewidth = 1.0, linestyle = :dash)
         insert!(leg_el, 3, LineElement(color = NU_COLOR[:mh], linewidth = 1.0, linestyle = :dash))
@@ -194,7 +207,8 @@ function fig_ext_plane(cells3, cells4; B = BTOP)
     xlims!(ax, xl...); ylims!(ax, yl...)
     Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = 3, framevisible = false, labelsize = 7,
            patchsize = (14, 8), rowgap = 2, colgap = 14, tellwidth = false, tellheight = true, padding = (0, 0, 0, 0))
-    Label(fig[0, 1], "$(EXT_TITLE), normal ordering, B = $(fmt_B_short(B))"; fontsize = 8.5, font = :regular, tellwidth = false)
+    Label(fig[0, 1], "$(EXT_TITLE), normal ordering, B = $(fmt_B_short(B))" * fresh_note(ne4);
+          fontsize = fresh_mode() ? 7.5 : 8.5, font = :regular, tellwidth = false, justification = :center)
     rowgap!(fig.layout, 4)
     return fig
 end
@@ -243,8 +257,9 @@ function fig_ext_marginals(cells3, cells4; ordering = :NO, B = BTOP)
     end
     Legend(fig[3, 1:3], leg_el, leg_lb; orientation = :horizontal, nbanks = 3, framevisible = false,
            padding = (0, 0, 0, 0), labelsize = 7, colgap = 18, rowgap = 1, tellwidth = false)
-    Label(fig[0, 1:3], "$(EXT_TITLE), $(ord_word(ordering)), B = $(fmt_B_short(B))";
-          fontsize = 9, font = :regular, tellwidth = false)
+    Label(fig[0, 1:3], "$(EXT_TITLE), $(ord_word(ordering)), B = $(fmt_B_short(B))" *
+                       (curves[1][2][1] !== nothing ? fresh_note(curves[1][2][3]) : "");
+          fontsize = fresh_mode() ? 8 : 9, font = :regular, tellwidth = false, justification = :center)
     rowgap!(fig.layout, 6); colgap!(fig.layout, 14)
     return fig
 end
@@ -452,13 +467,52 @@ function fig_ext_seeds(cells4; ordering = :NO, B = BTOP)
     end
     isempty(ends_x) || scatter!(ax, ends_x, ends_y; color = NU_COLOR[:mw], marker = NU_MARKER[:mw], markersize = 8,
                                 strokecolor = :black, strokewidth = 0.4)
+    # fresh mode: the final inference stage of each n_seed = 8 cell — N_eff of the
+    # independent draws from the frozen final mixture, plotted at the total cost
+    # C_adapt + N_fresh (the estimator the chapter reports)
+    fin_y = Float64[]; fin_note = ""
+    if fresh_mode()
+        fin = [c for c in cells4 if c.ordering === ordering && c.alg === :mw && c.B == B && is_fresh(c.mr)]
+        if !isempty(fin)
+            fin_x = [Float64(c.mr.extras[:C_total]) * u for c in fin]
+            fin_y = [Float64(c.mr.extras[:ess_fresh]) for c in fin]
+            for c in fin   # dotted connector from the end of the adaptation (nearest logged end point) to the final stage
+                isempty(ends_x) && break
+                xa = Float64(c.mr.extras[:C_adapt]) * u
+                k = argmin(abs.(ends_x .- xa))
+                abs(ends_x[k] - xa) < 0.05 || continue
+                lines!(ax, [ends_x[k], Float64(c.mr.extras[:C_total]) * u], [ends_y[k], Float64(c.mr.extras[:ess_fresh])];
+                       color = (NU_COLOR[:mw], 0.6), linewidth = 0.8, linestyle = :dot)
+            end
+            # diamonds (not the star used for the adaptation end points): the estimator the chapter reports
+            scatter!(ax, fin_x, fin_y; color = NU_COLOR[:mw], marker = :diamond, markersize = 9, strokecolor = :black, strokewidth = 0.8)
+            push!(leg_el, MarkerElement(color = NU_COLOR[:mw], marker = :diamond, markersize = 9, strokecolor = :black, strokewidth = 0.8))
+            nf = Int(round(median(Float64(c.mr.extras[:N_fresh]) for c in fin)))
+            push!(leg_lb, "final stage: independent final-mixture draws"); fin_note = "final stage: N = $(fmt_B_sci(nf)) independent draws from the final mixture per seed"
+        end
+        # the protocol-seed-count cell (over budget, diagnostic): its final stage from the saved payload
+        for (seed, df, meta) in proto_logs
+            pp = joinpath(EXT, "fresh", "protocol30__nu_dakamide_$(ordering)_mw_d24_B$(ExperimentsBase._budget_token(B))_seed$(seed).jld2")
+            isfile(pp) || continue
+            dpp = JLD2.load(pp)
+            wpp = Vector{Float64}(dpp["weights"]); npp = Int(get(dpp, "N", length(wpp)))
+            xa, ya = df.cum_cost[end] * u, df.ess[end]
+            xf, yf = (df.cum_cost[end] + npp) * u, 1 / sum(wpp .^ 2)
+            lines!(ax, [xa, xf], [ya, yf]; color = (NU_COLOR[:mw], 0.6), linewidth = 0.8, linestyle = :dot)
+            scatter!(ax, [xf], [yf]; color = :white, marker = :diamond, markersize = 9, strokecolor = NU_COLOR[:mw], strokewidth = 1.4)
+            push!(fin_y, yf)
+            push!(leg_el, MarkerElement(color = :white, marker = :diamond, markersize = 9, strokecolor = NU_COLOR[:mw], strokewidth = 1.4))
+            push!(leg_lb, "final stage, protocol seed count (over budget)")
+        end
+    end
     vlines!(ax, [B * u]; color = :gray50, linewidth = 0.7, linestyle = :dot)
-    ytop = maximum(vcat(ends_y, [neff(c.mr) for c in mh], [df.ess[end] for (_, df, _) in proto_logs], [df.ess[1] for (_, df, _) in adapted]); init = 10.0)
+    ytop = maximum(vcat(ends_y, fin_y, [neff(c.mr) for c in mh], [df.ess[end] for (_, df, _) in proto_logs], [df.ess[1] for (_, df, _) in adapted]); init = 10.0)
     text!(ax, B * u, ytop; text = "budget", align = (:left, :top), offset = (3, 0), fontsize = 6.5, color = :gray40)
     xlims!(ax, 0, nothing)
-    Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = 3, framevisible = false, labelsize = 7,
+    # two legend columns when the final-stage entries are present (seven entries; three columns would overflow the width)
+    Legend(fig[2, 1], leg_el, leg_lb; orientation = :horizontal, nbanks = length(leg_el) > 5 ? 4 : 3, framevisible = false, labelsize = 7,
            patchsize = (12, 8), rowgap = 2, colgap = 14, tellwidth = false, tellheight = true, padding = (0, 0, 0, 0))
-    Label(fig[0, 1], "$(EXT_TITLE), $(ord_word(ordering)), d = 24"; fontsize = 8.5, font = :regular, tellwidth = false)
+    Label(fig[0, 1], "$(EXT_TITLE), $(ord_word(ordering)), d = 24" * (isempty(fin_note) ? "" : "\n" * fin_note); fontsize = 8.5, font = :regular, tellwidth = false, justification = :center)
     rowgap!(fig.layout, 4)
     return fig
 end

@@ -23,9 +23,15 @@ const HARNESS = joinpath(@__DIR__, "..", "harness", "experiments", "src", "Exper
 include(HARNESS)
 using .ExperimentsBase
 
+include(joinpath(@__DIR__, "fresh_common.jl"))   # --estimator population|fresh (default population)
+
 const OUT = let i = findfirst(==("--out"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out") : ARGS[i+1] end
 const RUNS = joinpath(OUT, "runs")
-const TABLES = joinpath(OUT, "tables")
+# --estimator fresh: MoleWhacker cells are represented by their saved final
+# sample (out/fresh_d11/<cell>.jld2, 75_final_sample.jl) and every table is
+# written to out/fresh_primary/tables; the archived population tables in
+# out/tables are left untouched.
+const TABLES = fresh_mode() ? joinpath(fresh_subdir(OUT), "tables") : joinpath(OUT, "tables")
 mkpath(TABLES)
 const N_EVAL = 20_000
 const OSC = [:θ₁₂, :θ₁₃, :θ₂₃, :δCP, :Δm²₂₁, :Δm²₃₁]
@@ -59,6 +65,10 @@ function load_cells()
         pc = meta["problem"]["config"]
         mr = load_method_result(dir)
         size(mr.samples, 2) <= 1 && (@warn "empty cell skipped" name; continue)
+        if fresh_mode() && mr.algorithm === :mw
+            mr = fresh_method_result(mr, fresh_payload_path(OUT, name),
+                                     Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]))
+        end
         tuning = Dict{String,Any}(meta["algorithm"]["tuning"])
         push!(cells, Cell(dir, mr.problem, Symbol(pc["ordering"]), mr.algorithm, mr.B, mr.seed, mr,
             Symbol.(pc["names"]), Float64.(pc["lo"]), Float64.(pc["hi"]), Float64(pc["L"]),
@@ -153,6 +163,15 @@ function summarise_row!(r, prefix, x)
     r[Symbol(prefix, "_q16")] = q[1]; r[Symbol(prefix, "_q50")] = q[2]; r[Symbol(prefix, "_q84")] = q[3]
 end
 
+# Weighted version (fresh mode): summaries directly from the pooled weights a,
+# not from an equal-weight plotting resample.
+function summarise_row!(r, prefix, x, a)
+    m, s = weighted_stats(x, a)
+    r[Symbol(prefix, "_mean")] = m; r[Symbol(prefix, "_sd")] = s
+    r[Symbol(prefix, "_q16")] = wquantile(x, a, 0.16); r[Symbol(prefix, "_q50")] = wquantile(x, a, 0.5)
+    r[Symbol(prefix, "_q84")] = wquantile(x, a, 0.84)
+end
+
 function main()
     cells = load_cells()
     @info "loaded cells" n = length(cells)
@@ -169,6 +188,15 @@ function main()
             :neff => ne, :eta => ne / max(c.mr.Nlike_used, 1), :stop => c.stop,
             :logZ => c.mr.logZ_estimate === missing ? NaN : c.mr.logZ_estimate,
             :logZ_se => c.mr.logZ_estimate_se === missing ? NaN : c.mr.logZ_estimate_se)
+        if fresh_mode()
+            fr = is_fresh(c.mr)
+            r[:estimator] = fr ? "fresh" : "output"
+            r[:C_adapt] = fr ? c.mr.extras[:C_adapt] : NaN
+            r[:N_fresh] = fr ? c.mr.extras[:N_fresh] : NaN
+            r[:pareto_k] = fr ? c.mr.extras[:pareto_k] : NaN
+            r[:wall_adapt_s] = fr ? c.mr.extras[:wall_adapt_s] : c.mr.wall_time_s
+            r[:wall_fresh_eval_s] = fr ? c.mr.extras[:wall_fresh_eval_s] : NaN
+        end
         for (i, nm) in enumerate(c.names)
             m, s = weighted_stats(view(Θ, i, :), w)
             r[Symbol(ascii(nm), "_mean")] = m
@@ -182,7 +210,8 @@ function main()
         push!(rows, r; cols = :union)
     end
     sort!(rows, [:ordering, :B, :alg, :seed])
-    lead = [:tag, :ordering, :alg, :B, :seed, :Nlike_used, :wall_time_s, :N, :neff, :eta, :stop, :logZ, :logZ_se, :P_upper_octant]
+    lead = [:tag, :ordering, :alg, :B, :seed, :estimator, :Nlike_used, :C_adapt, :N_fresh, :wall_time_s, :wall_adapt_s, :wall_fresh_eval_s,
+            :N, :neff, :eta, :pareto_k, :stop, :logZ, :logZ_se, :P_upper_octant]
     parcols = Symbol[]
     for nm in cells[1].names, suf in ("_mean", "_sd")
         push!(parcols, Symbol(ascii(nm), suf))
@@ -194,18 +223,34 @@ function main()
     rngp = MersenneTwister(99)
     phys = DataFrame()
     for ord in (:NO, :IO), alg in (:mw, :mh, :nuts, :ns, :is), B in sort(unique(c.B for c in cells))
-        Θ, sel = pooled_physical(cells, ord, alg, B, 60_000, rngp)
-        Θ === nothing && continue
+        if fresh_mode()
+            # equal-batch pooled weights, summaries computed from the weights themselves
+            sel = [c for c in cells if c.ordering === ord && c.alg === alg && c.B == B]
+            isempty(sel) && continue
+            S, a = pooled_weighted([c.mr for c in sel])
+            Θ = physical(sel[1], S)
+        else
+            Θ, sel = pooled_physical(cells, ord, alg, B, 60_000, rngp)
+            Θ === nothing && continue
+            a = nothing
+        end
         r = Dict{Symbol,Any}(:ordering => ord, :alg => alg, :B => B, :n_seeds => length(sel),
                              :Nlike_mean => mean(c.mr.Nlike_used for c in sel))
+        if fresh_mode()
+            r[:estimator] = alg === :mw ? "fresh" : "output"
+            r[:neff_pooled] = pool_neff([c.mr for c in sel])
+            r[:C_adapt_mean] = alg === :mw ? mean(c.mr.extras[:C_adapt] for c in sel) : NaN
+            r[:N_fresh_mean] = alg === :mw ? mean(c.mr.extras[:N_fresh] for c in sel) : NaN
+        end
         names = sel[1].names
         for (i, nm) in enumerate(names)
-            summarise_row!(r, ascii(nm), view(Θ, i, :))
+            a === nothing ? summarise_row!(r, ascii(nm), view(Θ, i, :)) : summarise_row!(r, ascii(nm), view(Θ, i, :), a)
         end
         for (k, v) in Base.pairs(derived(Θ, names))   # `pairs` is a local DataFrame below
-            summarise_row!(r, String(k), v)
+            a === nothing ? summarise_row!(r, String(k), v) : summarise_row!(r, String(k), v, a)
         end
-        r[:P_upper_octant] = mean(view(Θ, findfirst(==(:θ₂₃), names), :) .> π / 4)
+        i23 = findfirst(==(:θ₂₃), names)
+        r[:P_upper_octant] = a === nothing ? mean(view(Θ, i23, :) .> π / 4) : sum(a[view(Θ, i23, :) .> π / 4]) / sum(a)
         push!(phys, r; cols = :union)
     end
     sort!(phys, [:ordering, :B, :alg])

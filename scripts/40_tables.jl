@@ -19,7 +19,16 @@ include(joinpath(@__DIR__, "..", "src", "published_values.jl"))
 
 const OUT = let i = findfirst(==("--out"), ARGS); i === nothing ? joinpath(@__DIR__, "..", "out") : ARGS[i+1] end
 const BTOP = let i = findfirst(==("--B"), ARGS); i === nothing ? 5e5 : parse(Float64, ARGS[i+1]) end
-const TABLES = joinpath(OUT, "tables")
+# --estimator fresh: read the tables written by `20_aggregate.jl --estimator fresh`
+# (MoleWhacker rows = independent draws from the final mixture) from
+# out/fresh_primary/tables and write the fragments there; the archived
+# population fragments in out/tables are left untouched. evidence_check.csv is
+# a reference input and is always read from out/tables.
+const ESTIMATOR = let i = findfirst(==("--estimator"), ARGS); i === nothing ? "population" : ARGS[i+1] end
+ESTIMATOR in ("population", "fresh") || error("--estimator must be population or fresh")
+fresh_mode() = ESTIMATOR == "fresh"
+const TABLES = fresh_mode() ? joinpath(OUT, "fresh_primary", "tables") : joinpath(OUT, "tables")
+const TABLES_REF = joinpath(OUT, "tables")
 
 # ---------------------------------------------------------------- formatting
 # value with asymmetric errors, rounded to two significant digits of the
@@ -98,16 +107,23 @@ const STOP_TEX = Dict("T_max" => "\\(T_{\\max}\\)", "budget" => "budget", "dlogz
                       "Neff" => "\\(\\neff\\)")
 stop_tex(s) = get(STOP_TEX, String(s), replace(String(s), "_" => "\\_"))
 
+# Fresh mode adds the construction / final-stage split of the MoleWhacker cost
+# (C_adapt + N_fresh = N_L used) and the Pareto k̂ of the final batch (median,
+# max over seeds); comparator rows keep their archived quantities.
 function table_samplers(cells, agree)
     io_ = IOBuffer()
-    println(io_, "\\begin{tabular}{@{}llrrrrrl@{}}")
+    fr = fresh_mode()
+    ncol = fr ? 11 : 8
+    println(io_, fr ? "\\begin{tabular}{@{}llrrrrrrrrl@{}}" : "\\begin{tabular}{@{}llrrrrrl@{}}")
     println(io_, "  \\toprule")
-    println(io_, "  Sampler & budget & \\(\\Nlike\\) used & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & \\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) & stop \\\\")
+    println(io_, "  Sampler & budget & ", fr ? "\\(C_{\\mathrm{adapt}}\\) & \\(N_{\\mathrm{fresh}}\\) & " : "",
+            "\\(\\Nlike\\) used & \\(\\neff\\) & \\(\\neff/\\Nlike\\) & ", fr ? "\\(\\hat k\\) & " : "",
+            "\\(\\overline{W}_1\\) & \\(\\ln\\evidence\\) & stop \\\\")
     println(io_, "  \\midrule")
     for ord in ("NO", "IO")
         sub_o = cells[cells.ordering .== ord, :]
         nrow(sub_o) == 0 && continue
-        println(io_, "  \\multicolumn{8}{@{}l}{\\emph{", ord == "NO" ? "normal" : "inverted", " ordering}} \\\\")
+        println(io_, "  \\multicolumn{$(ncol)}{@{}l}{\\emph{", ord == "NO" ? "normal" : "inverted", " ordering}} \\\\")
         for B in sort(unique(sub_o.B)), alg in ALG_ORDER
             s = sub_o[(sub_o.alg .== alg) .& (sub_o.B .== B), :]
             nrow(s) == 0 && continue
@@ -117,8 +133,14 @@ function table_samplers(cells, agree)
                  (nrow(s) > 1 ? @sprintf("\\(%.2f \\pm %.2f\\)", mean(s.logZ), std(s.logZ)) : @sprintf("\\(%.2f\\)", s.logZ[1]))
             ne = median(s.neff)
             nstr = ne >= 100 ? @sprintf("%.0f", ne) : @sprintf("%.1f", ne)
-            println(io_, "  ", ALG_NAME[alg], " & ", fmt_B(B), " & \\(", fmt_cost(median(s.Nlike_used)), "\\) & ", nstr,
-                    " & \\(", replace(sci(median(s.eta); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}"), "\\) & ", w1, " & ", lz,
+            extra1 = ""; extra2 = ""
+            if fr
+                ismw = alg == "mw"
+                extra1 = ismw ? "\\(" * fmt_cost(median(s.C_adapt)) * "\\) & \\(" * fmt_cost(median(s.N_fresh)) * "\\) & " : "-- & -- & "
+                extra2 = ismw ? (nrow(s) > 1 ? @sprintf("%.2f (%.2f) & ", median(s.pareto_k), maximum(s.pareto_k)) : @sprintf("%.2f & ", s.pareto_k[1])) : "-- & "
+            end
+            println(io_, "  ", ALG_NAME[alg], " & ", fmt_B(B), " & ", extra1, "\\(", fmt_cost(median(s.Nlike_used)), "\\) & ", nstr,
+                    " & \\(", replace(sci(median(s.eta); digits = 1), r"e-0*(\d+)" => s" \\times 10^{-\1}"), "\\) & ", extra2, w1, " & ", lz,
                     " & ", join(stop_tex.(unique(s.stop)), "/"), nrow(s) > 1 ? " (\\(n=$(nrow(s))\\))" : "", " \\\\")
         end
         ord == "NO" && println(io_, "  \\midrule")
@@ -156,7 +178,8 @@ function table_evidence(ev, bf; check = nothing, cells = nothing)
         b = bf[(bf.alg .== alg) .& (bf.B .== B), :]
         k = nrow(b) == 0 ? "--" : (isnan(b.se[1]) ? @sprintf("\\(%.2f\\)", b.lnK_NO_IO[1]) : @sprintf("\\(%.2f \\pm %.2f\\)", b.lnK_NO_IO[1], b.se[1]))
         stop = join(unique(vcat(no.stop, io.stop)), "/")
-        println(io_, "  ", ALG_NAME[alg], stop == "dlogz" ? " run to \\(\\Delta\\ln\\evidence < 0.5\\)" : "",
+        println(io_, "  ", ALG_NAME[alg], alg == "mw" && fresh_mode() ? " (final independent draws)" : "",
+                stop == "dlogz" ? " run to \\(\\Delta\\ln\\evidence < 0.5\\)" : "",
                 " & ", stop == "dlogz" && cells !== nothing ?
                     @sprintf("\\(%.1f\\times 10^{5}\\)", mean(cells[(cells.alg .== alg) .& (cells.B .== B), :Nlike_used]) / 1e5) : fmt_B(B),
                 " & ", f(no), " & ", f(io), " & ", k, " \\\\")
@@ -201,7 +224,7 @@ function main()
     agree = CSV.read(joinpath(TABLES, "agreement.csv"), DataFrame)
     ev = CSV.read(joinpath(TABLES, "evidence.csv"), DataFrame)
     bf = CSV.read(joinpath(TABLES, "bayes_factor.csv"), DataFrame)
-    chk_path = joinpath(TABLES, "evidence_check.csv")
+    chk_path = joinpath(TABLES_REF, "evidence_check.csv")   # archived reference (70_evidence_check.jl)
     check = isfile(chk_path) ? CSV.read(chk_path, DataFrame) : nothing
     for (name, s) in (("tab_nu_physics.tex", table_physics(phys)), ("tab_nu_samplers.tex", table_samplers(cells, agree)),
                       ("tab_nu_evidence.tex", table_evidence(ev, bf; check = check, cells = cells)), ("tab_nu_priors.tex", table_priors()))
